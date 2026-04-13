@@ -10,7 +10,7 @@ const DEFAULT_PRODUCTS = [
   {
     id: 2,
     title: "Velore Signature Bag",
-    price: 74.00,
+    price: 74.0,
     category: "Bags",
     image: "/image/products/bag-1.jpg",
     description: "Refined luxury bag for everyday elegance."
@@ -18,47 +18,61 @@ const DEFAULT_PRODUCTS = [
   {
     id: 3,
     title: "Velore Soft Perfume",
-    price: 29.50,
+    price: 29.5,
     category: "Perfume",
     image: "/image/products/perfume-1.jpg",
     description: "A calm, feminine scent with warm notes."
   }
 ];
 
-const DEFAULT_CATEGORIES = [
-  { title: "Shoes", image: "/image/category-shoes.jpg" },
-  { title: "Bags", image: "/image/category-bags.jpg" },
-  { title: "Perfume", image: "/image/category-perfume.jpg" }
-];
-
-const DEFAULT_BANNERS = [
-  "/image/banner-1.jpg",
-  "/image/banner-2.jpg"
-];
+const DEFAULT_CATEGORIES = ["Shoes", "Bags", "Perfume"];
+const DEFAULT_BANNERS = ["/image/banner-1.jpg", "/image/banner-2.jpg"];
 
 function getProducts() {
   return JSON.parse(localStorage.getItem("velore_products") || "null") || DEFAULT_PRODUCTS;
 }
 
-function saveProducts(items) {
-  localStorage.setItem("velore_products", JSON.stringify(items));
+function getCategories() {
+  return JSON.parse(localStorage.getItem("velore_categories") || "null") || DEFAULT_CATEGORIES;
 }
 
 function getBanners() {
   return JSON.parse(localStorage.getItem("velore_banners") || "null") || DEFAULT_BANNERS;
 }
 
-function saveOrders(items) {
-  localStorage.setItem("velore_orders", JSON.stringify(items));
-}
-
 function getOrders() {
   return JSON.parse(localStorage.getItem("velore_orders") || "[]");
+}
+
+function saveOrders(items) {
+  localStorage.setItem("velore_orders", JSON.stringify(items));
 }
 
 let PRODUCTS = getProducts();
 let cart = [];
 let selectedCategory = null;
+let currentLang = localStorage.getItem("velore_lang") || "en";
+
+const translations = {
+  en: {
+    shopByCategory: "Shop by Category",
+    featured: "Featured Products",
+    search: "Search products...",
+    tagline: "Luxury that feels calm, soft, and timeless."
+  },
+  ar: {
+    shopByCategory: "تسوّق حسب الفئة",
+    featured: "منتجات مميزة",
+    search: "ابحث عن المنتجات...",
+    tagline: "فخامة هادئة ومريحة وأنيقة."
+  },
+  fr: {
+    shopByCategory: "Acheter par catégorie",
+    featured: "Produits vedettes",
+    search: "Rechercher des produits...",
+    tagline: "Un luxe doux, calme et intemporel."
+  }
+};
 
 const grid = document.getElementById("productGrid");
 const categoryGrid = document.getElementById("categoryGrid");
@@ -74,37 +88,41 @@ function money(n) {
   return Number(n).toFixed(2);
 }
 
-function renderCategories() {
-  categoryGrid.innerHTML = DEFAULT_CATEGORIES.map(cat => `
-    <div class="category-card" data-category="${cat.title}">
-      <img src="${cat.image}" alt="${cat.title}">
-      <div class="overlay">${cat.title}</div>
-    </div>
-  `).join("");
-
-  categoryGrid.querySelectorAll(".category-card").forEach(card => {
-    card.addEventListener("click", () => {
-      selectedCategory = card.dataset.category;
-      renderProducts();
-      window.scrollTo({ top: document.querySelector(".toolbar").offsetTop - 100, behavior: "smooth" });
-    });
-  });
-}
-
 function filteredProducts() {
+  PRODUCTS = getProducts();
   const q = (searchInput.value || "").trim().toLowerCase();
-  return PRODUCTS.filter(p => {
+
+  return PRODUCTS.filter((p) => {
     const categoryOk = !selectedCategory || p.category === selectedCategory;
     const searchOk = !q || p.title.toLowerCase().includes(q);
     return categoryOk && searchOk;
   });
 }
 
+function renderCategories() {
+  const categories = getCategories();
+
+  categoryGrid.innerHTML = categories.map((cat) => `
+    <button class="category-pill" data-category="${cat}">${cat}</button>
+  `).join("");
+
+  categoryGrid.querySelectorAll(".category-pill").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedCategory = btn.dataset.category === selectedCategory ? null : btn.dataset.category;
+      renderCategories();
+      renderProducts();
+    });
+
+    if (btn.dataset.category === selectedCategory) {
+      btn.classList.add("active-pill");
+    }
+  });
+}
+
 function renderProducts() {
-  PRODUCTS = getProducts();
   const items = filteredProducts();
 
-  grid.innerHTML = items.map(p => `
+  grid.innerHTML = items.map((p) => `
     <div class="card">
       <img src="${p.image}" alt="${p.title}" data-product="${p.id}">
       <div class="p">
@@ -116,11 +134,16 @@ function renderProducts() {
     </div>
   `).join("");
 
-  grid.querySelectorAll("[data-cart]").forEach(btn => {
+  if (!items.length) {
+    grid.innerHTML = `<div class="admin-card">No matching products.</div>`;
+    return;
+  }
+
+  grid.querySelectorAll("[data-cart]").forEach((btn) => {
     btn.addEventListener("click", () => addToCart(Number(btn.dataset.cart)));
   });
 
-  grid.querySelectorAll("[data-product]").forEach(img => {
+  grid.querySelectorAll("[data-product]").forEach((img) => {
     img.addEventListener("click", () => {
       window.location.href = `/product/${img.dataset.product}`;
     });
@@ -128,7 +151,7 @@ function renderProducts() {
 }
 
 function addToCart(id) {
-  const existing = cart.find(x => x.product_id === id);
+  const existing = cart.find((x) => x.product_id === id);
   if (existing) existing.qty += 1;
   else cart.push({ product_id: id, qty: 1 });
   updateCartCount();
@@ -141,8 +164,8 @@ function updateCartCount() {
 function renderCart() {
   let total = 0;
 
-  cartItems.innerHTML = cart.map(item => {
-    const product = PRODUCTS.find(p => p.id === item.product_id);
+  cartItems.innerHTML = cart.map((item) => {
+    const product = PRODUCTS.find((p) => p.id === item.product_id);
     if (!product) return "";
 
     total += product.price * item.qty;
@@ -164,10 +187,10 @@ function renderCart() {
 
   cartTotal.textContent = money(total);
 
-  cartItems.querySelectorAll("[data-minus]").forEach(btn => {
+  cartItems.querySelectorAll("[data-minus]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = Number(btn.dataset.minus);
-      const item = cart.find(x => x.product_id === id);
+      const item = cart.find((x) => x.product_id === id);
       if (!item) return;
       item.qty = Math.max(1, item.qty - 1);
       renderCart();
@@ -175,10 +198,10 @@ function renderCart() {
     });
   });
 
-  cartItems.querySelectorAll("[data-plus]").forEach(btn => {
+  cartItems.querySelectorAll("[data-plus]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = Number(btn.dataset.plus);
-      const item = cart.find(x => x.product_id === id);
+      const item = cart.find((x) => x.product_id === id);
       if (!item) return;
       item.qty += 1;
       renderCart();
@@ -200,6 +223,7 @@ searchInput.addEventListener("input", renderProducts);
 
 document.getElementById("checkoutForm").addEventListener("submit", (e) => {
   e.preventDefault();
+
   if (!cart.length) {
     alert("Your cart is empty.");
     return;
@@ -207,26 +231,25 @@ document.getElementById("checkoutForm").addEventListener("submit", (e) => {
 
   const fd = new FormData(e.target);
   const orders = getOrders();
-  const newOrder = {
+
+  orders.unshift({
     id: Date.now(),
     name: fd.get("name"),
     phone: fd.get("phone"),
     address: fd.get("address"),
     payment_method: fd.get("payment"),
-    items: cart.map(item => {
-      const p = PRODUCTS.find(x => x.id === item.product_id);
+    items: cart.map((item) => {
+      const p = PRODUCTS.find((x) => x.id === item.product_id);
       return `${p?.title || "Item"} x${item.qty}`;
     }).join(", "),
     total: cart.reduce((sum, item) => {
-      const p = PRODUCTS.find(x => x.id === item.product_id);
+      const p = PRODUCTS.find((x) => x.id === item.product_id);
       return sum + ((p?.price || 0) * item.qty);
     }, 0).toFixed(2),
     created_at: new Date().toLocaleString()
-  };
+  });
 
-  orders.unshift(newOrder);
   saveOrders(orders);
-
   cart = [];
   updateCartCount();
   cartDialog.close();
@@ -239,7 +262,6 @@ let timer = null;
 
 function renderBanners() {
   const banners = getBanners();
-
   heroSlider.innerHTML = "";
   sliderDots.innerHTML = "";
 
@@ -282,7 +304,26 @@ function startSlider() {
   }, 4000);
 }
 
+function renderLanguage() {
+  const t = translations[currentLang];
+  document.querySelector("[data-i18n='shopByCategory']").textContent = t.shopByCategory;
+  document.querySelector("[data-i18n='featured']").textContent = t.featured;
+  document.querySelector("[data-i18n='tagline']").textContent = t.tagline;
+  searchInput.placeholder = t.search;
+  document.documentElement.lang = currentLang;
+  document.documentElement.dir = currentLang === "ar" ? "rtl" : "ltr";
+}
+
+document.querySelectorAll("[data-lang]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentLang = btn.dataset.lang;
+    localStorage.setItem("velore_lang", currentLang);
+    renderLanguage();
+  });
+});
+
 renderCategories();
 renderProducts();
 renderBanners();
+renderLanguage();
 updateCartCount();

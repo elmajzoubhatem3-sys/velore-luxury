@@ -27,31 +27,56 @@
 
     <section class="admin-card" id="adminPanel" style="display:none;">
       <div class="admin-head">
-        <h2>Manage Products</h2>
+        <h2>Categories</h2>
         <button id="logoutBtn" class="ghost-btn">Logout</button>
       </div>
 
+      <form id="categoryForm" class="stack-form">
+        <input name="categoryTitle" placeholder="Category name" required />
+        <button class="primary-btn" type="submit">Add Category</button>
+      </form>
+
+      <div id="adminCategoriesList" class="admin-list"></div>
+
+      <hr class="soft-line" />
+
+      <h2>Products</h2>
       <form id="productForm" class="stack-form">
         <input name="title" placeholder="Product title" required />
         <input name="price" type="number" step="0.01" placeholder="Price" required />
-        <input name="category" placeholder="Category" required />
-        <input name="image" placeholder="Image URL e.g. /image/products/shoe-1.jpg" required />
+        <select name="category" id="productCategorySelect" required></select>
         <textarea name="description" placeholder="Description" required></textarea>
-        <button class="primary-btn" type="submit">Add Product</button>
+
+        <div class="upload-box" id="productDropZone">
+          <p>Drag & drop product image here</p>
+          <p class="muted-text">or click to choose file</p>
+          <input type="file" id="productImageInput" accept="image/*" hidden />
+        </div>
+
+        <img id="productPreview" class="upload-preview" style="display:none;" alt="preview" />
+        <button class="primary-btn" type="submit">Save Product</button>
       </form>
+
+      <div class="admin-tools">
+        <button id="cancelEditBtn" class="ghost-btn" style="display:none;">Cancel Edit</button>
+      </div>
+
+      <div id="adminProductsList" class="admin-list"></div>
 
       <hr class="soft-line" />
 
-      <h2>Manage Banners</h2>
+      <h2>Banners</h2>
       <form id="bannerForm" class="stack-form">
-        <input name="bannerUrl" placeholder="Banner URL e.g. /image/banner-1.jpg" required />
+        <div class="upload-box" id="bannerDropZone">
+          <p>Drag & drop banner image here</p>
+          <p class="muted-text">or click to choose file</p>
+          <input type="file" id="bannerImageInput" accept="image/*" hidden />
+        </div>
+
+        <img id="bannerPreview" class="upload-preview" style="display:none;" alt="preview" />
         <button class="primary-btn" type="submit">Add Banner</button>
       </form>
 
-      <hr class="soft-line" />
-
-      <button id="refreshAdminBtn" class="ghost-btn">Refresh List</button>
-      <div id="adminProductsList" class="admin-list"></div>
       <div id="adminBannersList" class="admin-list"></div>
     </section>
   </main>
