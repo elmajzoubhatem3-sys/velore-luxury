@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VELORÉ Orders</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">VELORÉ Orders</div>
+      <a href="/admin" class="ghost-btn">Back to Admin</a>
+    </div>
+  </header>
+
+  <main class="container section-space">
+    <section class="admin-card">
+      <div class="admin-head">
+        <h2>Orders</h2>
+        <button id="clearOrdersBtn" class="ghost-btn">Clear Orders</button>
+      </div>
+      <p id="ordersMsg" class="muted-text"></p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Customer</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/orders.js"></script>
+</body>
+</html>

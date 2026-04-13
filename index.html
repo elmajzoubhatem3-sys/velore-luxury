@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VELORÉ</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-block">
+        <img src="/image/logo.png" alt="VELORÉ" class="logo" />
+        <div>
+          <div class="brand">VELORÉ</div>
+          <div class="tagline">Luxury that feels calm, soft, and timeless.</div>
+        </div>
+      </div>
+
+      <nav class="top-actions">
+        <a href="/admin" class="ghost-btn">Admin</a>
+        <a href="/orders" class="ghost-btn">Orders</a>
+        <button id="openCartBtn" class="primary-btn">Cart (<span id="cartCount">0</span>)</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-section container">
+      <div class="hero-slider" id="heroSlider"></div>
+      <div class="slider-dots" id="sliderDots"></div>
+    </section>
+
+    <section class="container section-space">
+      <div class="section-head">
+        <h2>Shop by Category</h2>
+        <p>Soft luxury essentials curated for effortless shopping.</p>
+      </div>
+      <div class="category-grid" id="categoryGrid"></div>
+    </section>
+
+    <section class="container section-space">
+      <div class="section-head">
+        <h2>Featured Products</h2>
+        <p>Minimal, elegant, and premium picks.</p>
+      </div>
+
+      <div class="toolbar">
+        <input id="searchInput" class="search-input" placeholder="Search products..." />
+      </div>
+
+      <div class="product-grid" id="productGrid"></div>
+    </section>
+  </main>
+
+  <dialog id="cartDialog" class="cart-dialog">
+    <div class="dialog-head">
+      <h3>Your Cart</h3>
+      <button id="closeCartBtn" class="icon-btn">✕</button>
+    </div>
+
+    <div id="cartItems" class="cart-items"></div>
+    <div class="cart-total">Total: <span id="cartTotal">0.00</span> $</div>
+
+    <form id="checkoutForm" class="checkout-form">
+      <input name="name" required placeholder="Full name" />
+      <input name="phone" required placeholder="Phone number" />
+      <input name="address" required placeholder="Address" />
+      <select name="payment" required>
+        <option value="">Payment method</option>
+        <option value="Cash on delivery">Cash on delivery</option>
+      </select>
+      <button type="submit" class="primary-btn full-btn">Place Order</button>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

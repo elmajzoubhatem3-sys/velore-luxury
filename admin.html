@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VELORÉ Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">VELORÉ Admin</div>
+      <a href="/" class="ghost-btn">Back to Home</a>
+    </div>
+  </header>
+
+  <main class="container section-space admin-layout">
+    <section class="admin-card">
+      <h2>Admin Login</h2>
+      <form id="loginForm" class="stack-form">
+        <input name="email" placeholder="Email" value="admin@velore.com" required />
+        <input name="password" type="password" placeholder="Password" value="123456" required />
+        <button class="primary-btn" type="submit">Login</button>
+      </form>
+      <p id="loginMsg" class="muted-text"></p>
+    </section>
+
+    <section class="admin-card" id="adminPanel" style="display:none;">
+      <div class="admin-head">
+        <h2>Manage Products</h2>
+        <button id="logoutBtn" class="ghost-btn">Logout</button>
+      </div>
+
+      <form id="productForm" class="stack-form">
+        <input name="title" placeholder="Product title" required />
+        <input name="price" type="number" step="0.01" placeholder="Price" required />
+        <input name="category" placeholder="Category" required />
+        <input name="image" placeholder="Image URL e.g. /image/products/shoe-1.jpg" required />
+        <textarea name="description" placeholder="Description" required></textarea>
+        <button class="primary-btn" type="submit">Add Product</button>
+      </form>
+
+      <hr class="soft-line" />
+
+      <h2>Manage Banners</h2>
+      <form id="bannerForm" class="stack-form">
+        <input name="bannerUrl" placeholder="Banner URL e.g. /image/banner-1.jpg" required />
+        <button class="primary-btn" type="submit">Add Banner</button>
+      </form>
+
+      <hr class="soft-line" />
+
+      <button id="refreshAdminBtn" class="ghost-btn">Refresh List</button>
+      <div id="adminProductsList" class="admin-list"></div>
+      <div id="adminBannersList" class="admin-list"></div>
+    </section>
+  </main>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
