@@ -87,5 +87,5 @@ clearOrdersBtn.addEventListener("click", async () => {
   loadOrders();
 });
 
-setInterval(loadOrders, 5000);
+setInterval(loadOrders, 20000);
 loadOrders();

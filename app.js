@@ -48,6 +48,11 @@ const searchInput = document.getElementById("searchInput");
 const heroSlider = document.getElementById("heroSlider");
 const sliderDots = document.getElementById("sliderDots");
 
+const globeBtn = document.getElementById("globeBtn");
+const langMenu = document.getElementById("langMenu");
+const moreBtn = document.getElementById("moreBtn");
+const moreMenu = document.getElementById("moreMenu");
+
 function t(key) {
   return translations[currentLang]?.[key] || translations.en[key] || key;
 }
@@ -314,7 +319,29 @@ document.querySelectorAll("[data-lang]").forEach((btn) => {
     currentLang = btn.dataset.lang;
     localStorage.setItem("velore_lang", currentLang);
     renderLanguage();
+    closeMenus();
   });
+});
+
+function closeMenus() {
+  langMenu?.classList.remove("open");
+  moreMenu?.classList.remove("open");
+}
+
+globeBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  moreMenu?.classList.remove("open");
+  langMenu?.classList.toggle("open");
+});
+
+moreBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  langMenu?.classList.remove("open");
+  moreMenu?.classList.toggle("open");
+});
+
+document.addEventListener("click", () => {
+  closeMenus();
 });
 
 async function init() {

@@ -664,3 +664,68 @@ td {
     font-size: 28px;
   }
 }
+.menu-wrap {
+  position: relative;
+}
+
+.more-btn,
+.lang-icon-btn {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.18s ease;
+}
+
+.more-btn:hover,
+.lang-icon-btn:hover {
+  background: #fff9f2;
+  border-color: #d6c2a5;
+}
+
+.floating-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 190px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 18px 45px rgba(25, 20, 17, 0.1);
+  padding: 8px;
+  display: none;
+  z-index: 200;
+}
+
+.floating-menu.open {
+  display: block;
+}
+
+.floating-item {
+  width: 100%;
+  display: block;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  text-decoration: none;
+  padding: 11px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.floating-item:hover {
+  background: #fcf6ee;
+}
+
+.contact-menu .floating-item {
+  white-space: nowrap;
+}
