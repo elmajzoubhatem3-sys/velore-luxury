@@ -1,119 +1,75 @@
-const ordersTableBody = document.getElementById("ordersTableBody");
-const ordersMsg = document.getElementById("ordersMsg");
-const clearOrdersBtn = document.getElementById("clearOrdersBtn");
-const audio = new Audio("/sounds/new-order.mp3");
-audio.preload = "auto";
+import { initDb, pool } from "./_lib/db.js";
+import { requireAdmin } from "./_lib/auth.js";
 
-function getToken() {
-  return localStorage.getItem("velore_admin_token") || "";
-}
+export default async function handler(req, res) {
+  try {
+    await initDb();
 
-let lastSeenMaxId = Number(localStorage.getItem("velore_last_seen_order_id") || 0);
+    if (req.method === "GET") {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
 
-document.addEventListener("click", () => {
-  audio.play().then(() => {
-    audio.pause();
-    audio.currentTime = 0;
-  }).catch(() => {});
-}, { once: true });
+      const { rows } = await pool.query(`
+        SELECT * FROM orders ORDER BY id DESC
+      `);
 
-async function loadOrders() {
-  const token = getToken();
-  if (!token) {
-    ordersMsg.textContent = "Please login from admin first.";
-    return;
-  }
-
-  const res = await fetch("/api/orders", {
-    headers: {
-      Authorization: `Bearer ${token}`
+      return res.status(200).json(rows);
     }
-  });
 
-  const data = await res.json().catch(() => []);
-  if (!res.ok) {
-    ordersMsg.textContent = "Failed to load orders.";
-    return;
-  }
+    if (req.method === "POST") {
+      const { name, phone, email, address, payment_method, items } = req.body;
 
-  ordersMsg.textContent = `Total orders: ${data.length}`;
+      if (!name || !phone || !address || !items?.length) {
+        return res.status(400).json({ error: "Missing data" });
+      }
 
-  const maxId = data.reduce((m, x) => Math.max(m, Number(x.id || 0)), 0);
-  if (lastSeenMaxId && maxId > lastSeenMaxId) {
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-  }
-  lastSeenMaxId = maxId;
-  localStorage.setItem("velore_last_seen_order_id", String(lastSeenMaxId));
+      let total = 0;
 
-  ordersTableBody.innerHTML = data.map((order) => `
-    <tr>
-      <td>${order.id}</td>
-      <td>
-        <b>${order.name}</b><br>
-        <span class="muted-text">${order.phone}</span><br>
-        <span class="muted-text">${order.email || ""}</span><br>
-        <span class="muted-text">${order.address}</span>
-      </td>
-      <td>
-        ${(Array.isArray(order.items_json) ? order.items_json : []).map((x) => `${x.title} x${x.qty}`).join("<br>")}
-      </td>
-      <td>${Number(order.total).toFixed(2)} $<br><span class="muted-text">${order.payment_method}</span></td>
-      <td>${new Date(order.created_at).toLocaleString()}</td>
-      <td>
-        <button class="ghost-btn" onclick="cancelOrder(${order.id})">Cancel Order</button>
-      </td>
-    </tr>
-  `).join("");
+      const normalizedItems = items.map((item) => {
+        total += 10; // مؤقت
+        return {
+          product_id: item.product_id,
+          title: "Item",
+          qty: item.qty || 1,
+          price: 10
+        };
+      });
 
-  if (!data.length) {
-    ordersTableBody.innerHTML = `<tr><td colspan="6">No orders yet.</td></tr>`;
+      const insert = await pool.query(`
+        INSERT INTO orders (name, phone, email, address, payment_method, items_json, total)
+        VALUES (
+          '${name}',
+          '${phone}',
+          '${email}',
+          '${address}',
+          '${payment_method}',
+          '${JSON.stringify(normalizedItems)}',
+          '${total}'
+        )
+        RETURNING *
+      `);
+
+      return res.status(200).json(insert.rows[0]);
+    }
+
+    if (req.method === "DELETE") {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+
+      const { id } = req.body;
+
+      if (id) {
+        await pool.query(`DELETE FROM orders WHERE id=${id}`);
+      } else {
+        await pool.query(`DELETE FROM orders`);
+      }
+
+      return res.status(200).json({ ok: true });
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
+  } catch (err) {
+    console.log("SERVER ERROR:", err);
+    return res.status(500).json({ error: "Server error", details: String(err) });
   }
 }
-
-window.cancelOrder = async function cancelOrder(id) {
-  const token = getToken();
-  if (!token) return;
-
-  if (!confirm("Cancel this order?")) return;
-
-  const res = await fetch("/api/orders", {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify({ id, sendCancelEmail: true })
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    alert(data.error || "Cancel failed");
-    return;
-  }
-
-  loadOrders();
-};
-
-clearOrdersBtn.addEventListener("click", async () => {
-  const token = getToken();
-  if (!token) return;
-
-  if (!confirm("Clear all orders?")) return;
-
-  await fetch("/api/orders", {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify({})
-  });
-
-  lastSeenMaxId = 0;
-  localStorage.setItem("velore_last_seen_order_id", "0");
-  loadOrders();
-});
-
-setInterval(loadOrders, 20000);
-loadOrders();
