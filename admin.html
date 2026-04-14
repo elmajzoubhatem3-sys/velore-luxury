@@ -18,8 +18,8 @@
     <section class="admin-card">
       <h2>Admin Login</h2>
       <form id="loginForm" class="stack-form">
-        <input name="email" placeholder="Email" value="admin@velore.com" required />
-        <input name="password" type="password" placeholder="Password" value="123456" required />
+        <input name="email" placeholder="Email" required />
+        <input name="password" type="password" placeholder="Password" required />
         <button class="primary-btn" type="submit">Login</button>
       </form>
       <p id="loginMsg" class="muted-text"></p>
@@ -44,7 +44,7 @@
       <form id="productForm" class="stack-form">
         <input name="title" placeholder="Product title" required />
         <input name="price" type="number" step="0.01" placeholder="Price" required />
-        <select name="category" id="productCategorySelect" required></select>
+        <select name="categoryId" id="productCategorySelect" required></select>
         <textarea name="description" placeholder="Description" required></textarea>
 
         <div class="upload-box" id="productDropZone">

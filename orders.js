@@ -1,19 +1,14 @@
 const ordersTableBody = document.getElementById("ordersTableBody");
 const ordersMsg = document.getElementById("ordersMsg");
 const clearOrdersBtn = document.getElementById("clearOrdersBtn");
-
 const audio = new Audio("/sounds/new-order.mp3");
 audio.preload = "auto";
 
-function getOrders() {
-  return JSON.parse(localStorage.getItem("velore_orders") || "[]");
+function getToken() {
+  return localStorage.getItem("velore_admin_token") || "";
 }
 
-function saveOrders(items) {
-  localStorage.setItem("velore_orders", JSON.stringify(items));
-}
-
-let lastSeenCount = Number(localStorage.getItem("velore_last_seen_count") || 0);
+let lastSeenMaxId = Number(localStorage.getItem("velore_last_seen_order_id") || 0);
 
 document.addEventListener("click", () => {
   audio.play().then(() => {
@@ -22,18 +17,36 @@ document.addEventListener("click", () => {
   }).catch(() => {});
 }, { once: true });
 
-function renderOrders() {
-  const orders = getOrders();
-  ordersMsg.textContent = `Total orders: ${orders.length}`;
+async function loadOrders() {
+  const token = getToken();
+  if (!token) {
+    ordersMsg.textContent = "Please login from admin first.";
+    return;
+  }
 
-  if (orders.length > lastSeenCount) {
-    lastSeenCount = orders.length;
-    localStorage.setItem("velore_last_seen_count", String(lastSeenCount));
+  const res = await fetch("/api/orders", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  const data = await res.json().catch(() => []);
+  if (!res.ok) {
+    ordersMsg.textContent = "Failed to load orders.";
+    return;
+  }
+
+  ordersMsg.textContent = `Total orders: ${data.length}`;
+
+  const maxId = data.reduce((m, x) => Math.max(m, Number(x.id || 0)), 0);
+  if (lastSeenMaxId && maxId > lastSeenMaxId) {
     audio.currentTime = 0;
     audio.play().catch(() => {});
   }
+  lastSeenMaxId = maxId;
+  localStorage.setItem("velore_last_seen_order_id", String(lastSeenMaxId));
 
-  ordersTableBody.innerHTML = orders.map(order => `
+  ordersTableBody.innerHTML = data.map((order) => `
     <tr>
       <td>${order.id}</td>
       <td>
@@ -41,24 +54,38 @@ function renderOrders() {
         <span class="muted-text">${order.phone}</span><br>
         <span class="muted-text">${order.address}</span>
       </td>
-      <td>${order.items}</td>
-      <td>${order.total} $<br><span class="muted-text">${order.payment_method}</span></td>
-      <td>${order.created_at}</td>
+      <td>
+        ${(Array.isArray(order.items_json) ? order.items_json : []).map((x) => `${x.title} x${x.qty}`).join("<br>")}
+      </td>
+      <td>${Number(order.total).toFixed(2)} $<br><span class="muted-text">${order.payment_method}</span></td>
+      <td>${new Date(order.created_at).toLocaleString()}</td>
     </tr>
   `).join("");
 
-  if (!orders.length) {
+  if (!data.length) {
     ordersTableBody.innerHTML = `<tr><td colspan="5">No orders yet.</td></tr>`;
   }
 }
 
-clearOrdersBtn.addEventListener("click", () => {
+clearOrdersBtn.addEventListener("click", async () => {
+  const token = getToken();
+  if (!token) return;
+
   if (!confirm("Clear all orders?")) return;
-  saveOrders([]);
-  localStorage.setItem("velore_last_seen_count", "0");
-  lastSeenCount = 0;
-  renderOrders();
+
+  await fetch("/api/orders", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({})
+  });
+
+  lastSeenMaxId = 0;
+  localStorage.setItem("velore_last_seen_order_id", "0");
+  loadOrders();
 });
 
-setInterval(renderOrders, 5000);
-renderOrders();
+setInterval(loadOrders, 5000);
+loadOrders();
