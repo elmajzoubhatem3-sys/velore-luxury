@@ -21,7 +21,7 @@
         <input id="searchInput" class="search-input" placeholder="Search products..." />
       </div>
 
-      <nav class="top-actions">
+      <nav class="top-actions" id="topActions">
         <div class="menu-wrap">
           <button id="globeBtn" class="lang-icon-btn" type="button" title="Language">🌍</button>
           <div id="langMenu" class="floating-menu">
@@ -97,6 +97,7 @@
     <form id="checkoutForm" class="checkout-form">
       <input name="name" required placeholder="Full name" />
       <input name="phone" required placeholder="Phone number" />
+      <input name="email" type="email" required placeholder="Email address" />
       <input name="address" required placeholder="Address" />
       <select name="payment" required>
         <option value="">Payment method</option>

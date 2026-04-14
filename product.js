@@ -1,50 +1,56 @@
-const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    title: "Velore Classic Heels",
-    price: 39.99,
-    category: "Shoes",
-    image: "/image/products/shoe-1.jpg",
-    description: "Elegant heels with a soft premium finish."
-  },
-  {
-    id: 2,
-    title: "Velore Signature Bag",
-    price: 74.00,
-    category: "Bags",
-    image: "/image/products/bag-1.jpg",
-    description: "Refined luxury bag for everyday elegance."
-  },
-  {
-    id: 3,
-    title: "Velore Soft Perfume",
-    price: 29.50,
-    category: "Perfume",
-    image: "/image/products/perfume-1.jpg",
-    description: "A calm, feminine scent with warm notes."
+async function loadProduct() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (!id) {
+    document.getElementById("productPage").innerHTML = "<p>Product not found.</p>";
+    return;
   }
-];
 
-function getProducts() {
-  return JSON.parse(localStorage.getItem("velore_products") || "null") || DEFAULT_PRODUCTS;
+  const res = await fetch("/api/products");
+  const products = await res.json();
+  const product = products.find((p) => String(p.id) === String(id));
+
+  if (!product) {
+    document.getElementById("productPage").innerHTML = "<p>Product not found.</p>";
+    return;
+  }
+
+  document.title = `${product.title} - VELORÉ`;
+
+  document.getElementById("productPage").innerHTML = `
+    <div>
+      <img src="${product.image || ""}" alt="${product.title}" class="product-main-image" onerror="this.style.display='none'">
+    </div>
+
+    <div class="product-meta">
+      <div class="product-category">${product.category || ""}</div>
+      <h1>${product.title}</h1>
+      <div class="product-price">${Number(product.price).toFixed(2)} $</div>
+      <div class="product-desc">${product.description || ""}</div>
+
+      <div class="product-actions">
+        <button id="shareBtn" class="primary-btn" type="button">Share Product</button>
+        <a href="/" class="ghost-btn">Back to Store</a>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("shareBtn").addEventListener("click", async () => {
+    const shareData = {
+      title: product.title,
+      text: product.description || product.title,
+      url: window.location.href
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {}
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      alert("Product link copied ✅");
+    }
+  });
 }
 
-const page = document.getElementById("productPage");
-const id = window.location.pathname.split("/").pop();
-const products = getProducts();
-const product = products.find(p => String(p.id) === String(id)) || products[0];
-
-document.title = `VELORÉ | ${product.title}`;
-
-page.innerHTML = `
-  <div class="product-page">
-    <img src="${product.image}" alt="${product.title}">
-    <div class="product-meta">
-      <div class="product-category">${product.category}</div>
-      <h1>${product.title}</h1>
-      <p>${product.description || ""}</p>
-      <div class="product-price">${Number(product.price).toFixed(2)} $</div>
-      <a href="/" class="primary-btn" style="width:max-content;">Back to Home</a>
-    </div>
-  </div>
-`;
+loadProduct();

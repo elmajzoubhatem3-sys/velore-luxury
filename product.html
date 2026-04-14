@@ -9,13 +9,22 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <div class="brand">VELORÉ</div>
-      <a href="/" class="ghost-btn">Back to Home</a>
+      <div class="brand-block">
+        <img src="/image/logo.png" alt="VELORÉ" class="logo" onerror="this.style.display='none'" />
+        <div class="brand-copy">
+          <div class="brand">VELORÉ</div>
+          <div class="tagline">Luxury that feels calm, soft, and timeless.</div>
+        </div>
+      </div>
+
+      <a href="/" class="ghost-btn">Back to Store</a>
     </div>
   </header>
 
-  <main class="container section-space">
-    <div id="productPage"></div>
+  <main class="container product-page-shell">
+    <div class="product-page-card">
+      <div id="productPage" class="product-page"></div>
+    </div>
   </main>
 
   <script src="/product.js"></script>

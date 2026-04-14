@@ -1,10 +1,8 @@
 import { initDb, pool } from "./_lib/db.js";
 import { requireAdmin } from "./_lib/auth.js";
 
-async function sendOrderEmail(order) {
-  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM || !process.env.ADMIN_EMAIL_RECEIVER) {
-    return;
-  }
+async function sendResendEmail({ to, subject, html }) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM || !to) return;
 
   await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -14,18 +12,9 @@ async function sendOrderEmail(order) {
     },
     body: JSON.stringify({
       from: process.env.EMAIL_FROM,
-      to: [process.env.ADMIN_EMAIL_RECEIVER],
-      subject: `New Order #${order.id} - VELORÉ`,
-      html: `
-        <h2>New Order</h2>
-        <p><b>Name:</b> ${order.name}</p>
-        <p><b>Phone:</b> ${order.phone}</p>
-        <p><b>Address:</b> ${order.address}</p>
-        <p><b>Payment:</b> ${order.payment_method}</p>
-        <p><b>Total:</b> ${order.total} $</p>
-        <p><b>Items:</b></p>
-        <pre>${JSON.stringify(order.items_json, null, 2)}</pre>
-      `
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      html
     })
   });
 }
@@ -33,12 +22,17 @@ async function sendOrderEmail(order) {
 export default async function handler(req, res) {
   await initDb();
 
+  await pool.query(`
+    ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS email TEXT
+  `);
+
   if (req.method === "GET") {
     const admin = requireAdmin(req, res);
     if (!admin) return;
 
     const { rows } = await pool.query(
-      `SELECT id, name, phone, address, payment_method, items_json, total, created_at
+      `SELECT id, name, phone, email, address, payment_method, items_json, total, created_at
        FROM orders
        ORDER BY id DESC`
     );
@@ -46,8 +40,8 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const { name, phone, address, payment_method, items } = req.body || {};
-    if (!name || !phone || !address || !payment_method || !Array.isArray(items) || !items.length) {
+    const { name, phone, email, address, payment_method, items } = req.body || {};
+    if (!name || !phone || !email || !address || !payment_method || !Array.isArray(items) || !items.length) {
       return res.status(400).json({ error: "Missing order data" });
     }
 
@@ -76,17 +70,42 @@ export default async function handler(req, res) {
 
     const insert = await pool.query(
       `
-      INSERT INTO orders (name, phone, address, payment_method, items_json, total)
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-      RETURNING id, name, phone, address, payment_method, items_json, total, created_at
+      INSERT INTO orders (name, phone, email, address, payment_method, items_json, total)
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+      RETURNING id, name, phone, email, address, payment_method, items_json, total, created_at
       `,
-      [name, phone, address, payment_method, JSON.stringify(normalizedItems), total.toFixed(2)]
+      [name, phone, email, address, payment_method, JSON.stringify(normalizedItems), total.toFixed(2)]
     );
 
     const order = insert.rows[0];
 
     try {
-      await sendOrderEmail(order);
+      await sendResendEmail({
+        to: process.env.ADMIN_EMAIL_RECEIVER,
+        subject: `New Order #${order.id} - VELORÉ`,
+        html: `
+          <h2>New Order</h2>
+          <p><b>Name:</b> ${order.name}</p>
+          <p><b>Phone:</b> ${order.phone}</p>
+          <p><b>Email:</b> ${order.email}</p>
+          <p><b>Address:</b> ${order.address}</p>
+          <p><b>Payment:</b> ${order.payment_method}</p>
+          <p><b>Total:</b> ${order.total} $</p>
+          <p><b>Items:</b></p>
+          <pre>${JSON.stringify(order.items_json, null, 2)}</pre>
+        `
+      });
+
+      await sendResendEmail({
+        to: order.email,
+        subject: `Your order #${order.id} - VELORÉ`,
+        html: `
+          <h2>Thank you for your order</h2>
+          <p>Hello ${order.name}, your order has been received successfully.</p>
+          <p><b>Order ID:</b> ${order.id}</p>
+          <p><b>Total:</b> ${order.total} $</p>
+        `
+      });
     } catch {}
 
     const whatsappText = [
@@ -119,9 +138,32 @@ export default async function handler(req, res) {
     const admin = requireAdmin(req, res);
     if (!admin) return;
 
-    const { id } = req.body || {};
+    const { id, sendCancelEmail } = req.body || {};
+
     if (id) {
+      const existing = await pool.query(`SELECT * FROM orders WHERE id = $1`, [Number(id)]);
+      if (!existing.rows.length) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const order = existing.rows[0];
+
       await pool.query(`DELETE FROM orders WHERE id = $1`, [Number(id)]);
+
+      if (sendCancelEmail && order.email) {
+        try {
+          await sendResendEmail({
+            to: order.email,
+            subject: `Order #${order.id} canceled - VELORÉ`,
+            html: `
+              <h2>Your order was canceled</h2>
+              <p>Hello ${order.name},</p>
+              <p>Your order <b>#${order.id}</b> has been canceled.</p>
+              <p>If you need anything, please contact us.</p>
+            `
+          });
+        } catch {}
+      }
     } else {
       await pool.query(`DELETE FROM orders`);
     }

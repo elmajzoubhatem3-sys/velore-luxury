@@ -52,6 +52,7 @@ async function loadOrders() {
       <td>
         <b>${order.name}</b><br>
         <span class="muted-text">${order.phone}</span><br>
+        <span class="muted-text">${order.email || ""}</span><br>
         <span class="muted-text">${order.address}</span>
       </td>
       <td>
@@ -59,13 +60,40 @@ async function loadOrders() {
       </td>
       <td>${Number(order.total).toFixed(2)} $<br><span class="muted-text">${order.payment_method}</span></td>
       <td>${new Date(order.created_at).toLocaleString()}</td>
+      <td>
+        <button class="ghost-btn" onclick="cancelOrder(${order.id})">Cancel Order</button>
+      </td>
     </tr>
   `).join("");
 
   if (!data.length) {
-    ordersTableBody.innerHTML = `<tr><td colspan="5">No orders yet.</td></tr>`;
+    ordersTableBody.innerHTML = `<tr><td colspan="6">No orders yet.</td></tr>`;
   }
 }
+
+window.cancelOrder = async function cancelOrder(id) {
+  const token = getToken();
+  if (!token) return;
+
+  if (!confirm("Cancel this order?")) return;
+
+  const res = await fetch("/api/orders", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ id, sendCancelEmail: true })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || "Cancel failed");
+    return;
+  }
+
+  loadOrders();
+};
 
 clearOrdersBtn.addEventListener("click", async () => {
   const token = getToken();

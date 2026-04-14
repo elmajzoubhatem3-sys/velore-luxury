@@ -131,7 +131,7 @@ function renderProducts() {
 
   grid.querySelectorAll("[data-product]").forEach((img) => {
     img.addEventListener("click", () => {
-      window.location.href = `/product/${img.dataset.product}`;
+      window.location.href = `/product.html?id=${img.dataset.product}`;
     });
   });
 }
@@ -257,6 +257,7 @@ document.getElementById("checkoutForm")?.addEventListener("submit", async (e) =>
     body: JSON.stringify({
       name: fd.get("name"),
       phone: fd.get("phone"),
+      email: fd.get("email"),
       address: fd.get("address"),
       payment_method: fd.get("payment"),
       items: cart
