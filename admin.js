@@ -22,42 +22,12 @@ const bannerDropZone = document.getElementById("bannerDropZone");
 const bannerImageInput = document.getElementById("bannerImageInput");
 const bannerPreview = document.getElementById("bannerPreview");
 
-const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    title: "Velore Classic Heels",
-    price: 39.99,
-    category: "Shoes",
-    image: "/image/products/shoe-1.jpg",
-    description: "Elegant heels with a soft premium finish."
-  },
-  {
-    id: 2,
-    title: "Velore Signature Bag",
-    price: 74.0,
-    category: "Bags",
-    image: "/image/products/bag-1.jpg",
-    description: "Refined luxury bag for everyday elegance."
-  },
-  {
-    id: 3,
-    title: "Velore Soft Perfume",
-    price: 29.5,
-    category: "Perfume",
-    image: "/image/products/perfume-1.jpg",
-    description: "A calm, feminine scent with warm notes."
-  }
-];
-
-const DEFAULT_CATEGORIES = ["Shoes", "Bags", "Perfume"];
-const DEFAULT_BANNERS = ["/image/banner-1.jpg", "/image/banner-2.jpg"];
-
 let productFile = null;
 let bannerFile = null;
 let editingProductId = null;
 
 function getProducts() {
-  return JSON.parse(localStorage.getItem("velore_products") || "null") || DEFAULT_PRODUCTS;
+  return JSON.parse(localStorage.getItem("velore_products") || "[]");
 }
 
 function saveProducts(items) {
@@ -65,7 +35,7 @@ function saveProducts(items) {
 }
 
 function getCategories() {
-  return JSON.parse(localStorage.getItem("velore_categories") || "null") || DEFAULT_CATEGORIES;
+  return JSON.parse(localStorage.getItem("velore_categories") || "[]");
 }
 
 function saveCategories(items) {
@@ -73,7 +43,7 @@ function saveCategories(items) {
 }
 
 function getBanners() {
-  return JSON.parse(localStorage.getItem("velore_banners") || "null") || DEFAULT_BANNERS;
+  return JSON.parse(localStorage.getItem("velore_banners") || "[]");
 }
 
 function saveBanners(items) {
@@ -90,6 +60,12 @@ function renderState() {
 
 function fillCategorySelect() {
   const categories = getCategories();
+
+  if (!categories.length) {
+    productCategorySelect.innerHTML = `<option value="">No categories yet</option>`;
+    return;
+  }
+
   productCategorySelect.innerHTML = categories
     .map((c) => `<option value="${c}">${c}</option>`)
     .join("");
@@ -100,12 +76,20 @@ function renderCategories() {
 
   adminCategoriesList.innerHTML = `
     <h3>Categories</h3>
-    ${categories.map((c, i) => `
+    ${
+      categories.length
+        ? categories
+            .map(
+              (c, i) => `
       <div class="admin-item">
         <div><b>${c}</b></div>
         <button class="ghost-btn" onclick="deleteCategory(${i})">Delete</button>
       </div>
-    `).join("")}
+    `
+            )
+            .join("")
+        : `<div class="admin-item"><div class="muted-text">No categories yet.</div></div>`
+    }
   `;
 }
 
@@ -114,13 +98,21 @@ function renderProducts() {
 
   adminProductsList.innerHTML = `
     <h3>Products</h3>
-    ${products.map((p) => `
+    ${
+      products.length
+        ? products
+            .map(
+              (p) => `
       <div class="admin-item">
         <div style="display:flex;gap:12px;align-items:center;">
-          <img src="${p.image}" class="admin-thumb" alt="${p.title}">
+          ${
+            p.image
+              ? `<img src="${p.image}" class="admin-thumb" alt="${p.title}" onerror="this.style.display='none'">`
+              : ""
+          }
           <div>
             <b>${p.title}</b>
-            <div class="muted-text">${p.category} • ${Number(p.price).toFixed(2)} $</div>
+            <div class="muted-text">${p.category || "-"} • ${Number(p.price || 0).toFixed(2)} $</div>
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -128,7 +120,11 @@ function renderProducts() {
           <button class="ghost-btn" onclick="deleteProduct(${p.id})">Delete</button>
         </div>
       </div>
-    `).join("")}
+    `
+            )
+            .join("")
+        : `<div class="admin-item"><div class="muted-text">No products yet.</div></div>`
+    }
   `;
 }
 
@@ -137,10 +133,14 @@ function renderBanners() {
 
   adminBannersList.innerHTML = `
     <h3>Banners</h3>
-    ${banners.map((b, i) => `
+    ${
+      banners.length
+        ? banners
+            .map(
+              (b, i) => `
       <div class="admin-item">
         <div style="display:flex;gap:12px;align-items:center;">
-          <img src="${b}" class="admin-thumb" alt="Banner">
+          <img src="${b}" class="admin-thumb" alt="Banner" onerror="this.style.display='none'">
           <div class="muted-text">${b}</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -149,7 +149,11 @@ function renderBanners() {
           <button class="ghost-btn" onclick="deleteBanner(${i})">Delete</button>
         </div>
       </div>
-    `).join("")}
+    `
+            )
+            .join("")
+        : `<div class="admin-item"><div class="muted-text">No banners yet.</div></div>`
+    }
   `;
 }
 
@@ -162,9 +166,10 @@ function renderAll() {
 
 loginForm.addEventListener("submit", (e) => {
   e.preventDefault();
+
   const fd = new FormData(loginForm);
-  const email = fd.get("email");
-  const password = fd.get("password");
+  const email = String(fd.get("email") || "").trim();
+  const password = String(fd.get("password") || "").trim();
 
   if (email === "admin@velore.com" && password === "123456") {
     localStorage.setItem("velore_admin", "yes");
@@ -183,6 +188,7 @@ logoutBtn.addEventListener("click", () => {
 
 categoryForm.addEventListener("submit", (e) => {
   e.preventDefault();
+
   const fd = new FormData(categoryForm);
   const title = String(fd.get("categoryTitle") || "").trim();
   if (!title) return;
@@ -271,6 +277,12 @@ productForm.addEventListener("submit", async (e) => {
   try {
     const fd = new FormData(productForm);
     const products = getProducts();
+    const categories = getCategories();
+
+    if (!categories.length) {
+      alert("Add a category first.");
+      return;
+    }
 
     let imageUrl = null;
 
@@ -356,8 +368,15 @@ bannerForm.addEventListener("submit", async (e) => {
 
 function deleteCategory(index) {
   const categories = getCategories();
+  const removed = categories[index];
   categories.splice(index, 1);
   saveCategories(categories);
+
+  if (removed) {
+    const products = getProducts().filter((p) => p.category !== removed);
+    saveProducts(products);
+  }
+
   renderAll();
 }
 
@@ -373,13 +392,18 @@ function editProduct(id) {
   if (!product) return;
 
   editingProductId = id;
-  productForm.elements.title.value = product.title;
-  productForm.elements.price.value = product.price;
-  productForm.elements.category.value = product.category;
-  productForm.elements.description.value = product.description;
+  productForm.elements.title.value = product.title || "";
+  productForm.elements.price.value = product.price || "";
+  productForm.elements.category.value = product.category || "";
+  productForm.elements.description.value = product.description || "";
 
-  productPreview.src = product.image;
-  productPreview.style.display = "block";
+  if (product.image) {
+    productPreview.src = product.image;
+    productPreview.style.display = "block";
+  } else {
+    productPreview.style.display = "none";
+  }
+
   cancelEditBtn.style.display = "inline-flex";
 }
 

@@ -1,43 +1,13 @@
-const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    title: "Velore Classic Heels",
-    price: 39.99,
-    category: "Shoes",
-    image: "/image/products/shoe-1.jpg",
-    description: "Elegant heels with a soft premium finish."
-  },
-  {
-    id: 2,
-    title: "Velore Signature Bag",
-    price: 74.0,
-    category: "Bags",
-    image: "/image/products/bag-1.jpg",
-    description: "Refined luxury bag for everyday elegance."
-  },
-  {
-    id: 3,
-    title: "Velore Soft Perfume",
-    price: 29.5,
-    category: "Perfume",
-    image: "/image/products/perfume-1.jpg",
-    description: "A calm, feminine scent with warm notes."
-  }
-];
-
-const DEFAULT_CATEGORIES = ["Shoes", "Bags", "Perfume"];
-const DEFAULT_BANNERS = ["/image/banner-1.jpg", "/image/banner-2.jpg"];
-
 function getProducts() {
-  return JSON.parse(localStorage.getItem("velore_products") || "null") || DEFAULT_PRODUCTS;
+  return JSON.parse(localStorage.getItem("velore_products") || "[]");
 }
 
 function getCategories() {
-  return JSON.parse(localStorage.getItem("velore_categories") || "null") || DEFAULT_CATEGORIES;
+  return JSON.parse(localStorage.getItem("velore_categories") || "[]");
 }
 
 function getBanners() {
-  return JSON.parse(localStorage.getItem("velore_banners") || "null") || DEFAULT_BANNERS;
+  return JSON.parse(localStorage.getItem("velore_banners") || "[]");
 }
 
 function getOrders() {
@@ -58,19 +28,31 @@ const translations = {
     shopByCategory: "Shop by Category",
     featured: "Featured Products",
     search: "Search products...",
-    tagline: "Luxury that feels calm, soft, and timeless."
+    tagline: "Luxury that feels calm, soft, and timeless.",
+    noCategories: "No categories yet.",
+    noProducts: "No products yet.",
+    emptyCart: "Your cart is empty.",
+    orderReceived: "Order received ✅"
   },
   ar: {
     shopByCategory: "تسوّق حسب الفئة",
-    featured: "منتجات مميزة",
+    featured: "المنتجات",
     search: "ابحث عن المنتجات...",
-    tagline: "فخامة هادئة ومريحة وأنيقة."
+    tagline: "فخامة هادئة ومريحة وأنيقة.",
+    noCategories: "لا توجد فئات بعد.",
+    noProducts: "لا توجد منتجات بعد.",
+    emptyCart: "السلة فارغة.",
+    orderReceived: "تم استلام الطلب ✅"
   },
   fr: {
     shopByCategory: "Acheter par catégorie",
-    featured: "Produits vedettes",
+    featured: "Produits",
     search: "Rechercher des produits...",
-    tagline: "Un luxe doux, calme et intemporel."
+    tagline: "Un luxe doux, calme et intemporel.",
+    noCategories: "Aucune catégorie pour le moment.",
+    noProducts: "Aucun produit pour le moment.",
+    emptyCart: "Le panier est vide.",
+    orderReceived: "Commande reçue ✅"
   }
 };
 
@@ -84,23 +66,33 @@ const searchInput = document.getElementById("searchInput");
 const heroSlider = document.getElementById("heroSlider");
 const sliderDots = document.getElementById("sliderDots");
 
+function t(key) {
+  return translations[currentLang]?.[key] || translations.en[key] || key;
+}
+
 function money(n) {
-  return Number(n).toFixed(2);
+  return Number(n || 0).toFixed(2);
 }
 
 function filteredProducts() {
   PRODUCTS = getProducts();
-  const q = (searchInput.value || "").trim().toLowerCase();
+  const q = (searchInput?.value || "").trim().toLowerCase();
 
   return PRODUCTS.filter((p) => {
     const categoryOk = !selectedCategory || p.category === selectedCategory;
-    const searchOk = !q || p.title.toLowerCase().includes(q);
+    const searchOk = !q || String(p.title || "").toLowerCase().includes(q);
     return categoryOk && searchOk;
   });
 }
 
 function renderCategories() {
   const categories = getCategories();
+  categoryGrid.innerHTML = "";
+
+  if (!categories.length) {
+    categoryGrid.innerHTML = `<div class="admin-card">${t("noCategories")}</div>`;
+    return;
+  }
 
   categoryGrid.innerHTML = categories.map((cat) => `
     <button class="category-pill" data-category="${cat}">${cat}</button>
@@ -121,23 +113,24 @@ function renderCategories() {
 
 function renderProducts() {
   const items = filteredProducts();
+  grid.innerHTML = "";
+
+  if (!items.length) {
+    grid.innerHTML = `<div class="admin-card">${t("noProducts")}</div>`;
+    return;
+  }
 
   grid.innerHTML = items.map((p) => `
     <div class="card">
-      <img src="${p.image}" alt="${p.title}" data-product="${p.id}">
+      <img src="${p.image}" alt="${p.title}" data-product="${p.id}" onerror="this.style.display='none'">
       <div class="p">
         <b>${p.title}</b>
-        <div class="muted-text">${p.category}</div>
+        <div class="muted-text">${p.category || ""}</div>
         <div class="price">${money(p.price)} $</div>
       </div>
       <button data-cart="${p.id}">Add to cart</button>
     </div>
   `).join("");
-
-  if (!items.length) {
-    grid.innerHTML = `<div class="admin-card">No matching products.</div>`;
-    return;
-  }
 
   grid.querySelectorAll("[data-cart]").forEach((btn) => {
     btn.addEventListener("click", () => addToCart(Number(btn.dataset.cart)));
@@ -168,7 +161,7 @@ function renderCart() {
     const product = PRODUCTS.find((p) => p.id === item.product_id);
     if (!product) return "";
 
-    total += product.price * item.qty;
+    total += Number(product.price || 0) * item.qty;
 
     return `
       <div class="row">
@@ -210,22 +203,22 @@ function renderCart() {
   });
 }
 
-document.getElementById("openCartBtn").addEventListener("click", () => {
+document.getElementById("openCartBtn")?.addEventListener("click", () => {
   renderCart();
   cartDialog.showModal();
 });
 
-document.getElementById("closeCartBtn").addEventListener("click", () => {
+document.getElementById("closeCartBtn")?.addEventListener("click", () => {
   cartDialog.close();
 });
 
-searchInput.addEventListener("input", renderProducts);
+searchInput?.addEventListener("input", renderProducts);
 
-document.getElementById("checkoutForm").addEventListener("submit", (e) => {
+document.getElementById("checkoutForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
 
   if (!cart.length) {
-    alert("Your cart is empty.");
+    alert(t("emptyCart"));
     return;
   }
 
@@ -244,7 +237,7 @@ document.getElementById("checkoutForm").addEventListener("submit", (e) => {
     }).join(", "),
     total: cart.reduce((sum, item) => {
       const p = PRODUCTS.find((x) => x.id === item.product_id);
-      return sum + ((p?.price || 0) * item.qty);
+      return sum + ((Number(p?.price || 0)) * item.qty);
     }, 0).toFixed(2),
     created_at: new Date().toLocaleString()
   });
@@ -254,7 +247,7 @@ document.getElementById("checkoutForm").addEventListener("submit", (e) => {
   updateCartCount();
   cartDialog.close();
   e.target.reset();
-  alert("Order received ✅");
+  alert(t("orderReceived"));
 });
 
 let slideIndex = 0;
@@ -265,10 +258,20 @@ function renderBanners() {
   heroSlider.innerHTML = "";
   sliderDots.innerHTML = "";
 
+  if (!banners.length) {
+    heroSlider.innerHTML = `
+      <div style="height:100%;display:flex;align-items:center;justify-content:center;color:#8a8a8a;font-size:20px;">
+        VELORÉ
+      </div>
+    `;
+    return;
+  }
+
   banners.forEach((src, index) => {
     const img = document.createElement("img");
     img.src = src;
     img.className = "slide" + (index === 0 ? " active" : "");
+    img.onerror = () => { img.style.display = "none"; };
     heroSlider.appendChild(img);
 
     const dot = document.createElement("div");
@@ -305,11 +308,10 @@ function startSlider() {
 }
 
 function renderLanguage() {
-  const t = translations[currentLang];
-  document.querySelector("[data-i18n='shopByCategory']").textContent = t.shopByCategory;
-  document.querySelector("[data-i18n='featured']").textContent = t.featured;
-  document.querySelector("[data-i18n='tagline']").textContent = t.tagline;
-  searchInput.placeholder = t.search;
+  document.querySelector("[data-i18n='shopByCategory']").textContent = t("shopByCategory");
+  document.querySelector("[data-i18n='featured']").textContent = t("featured");
+  document.querySelector("[data-i18n='tagline']").textContent = t("tagline");
+  if (searchInput) searchInput.placeholder = t("search");
   document.documentElement.lang = currentLang;
   document.documentElement.dir = currentLang === "ar" ? "rtl" : "ltr";
 }
@@ -319,6 +321,8 @@ document.querySelectorAll("[data-lang]").forEach((btn) => {
     currentLang = btn.dataset.lang;
     localStorage.setItem("velore_lang", currentLang);
     renderLanguage();
+    renderCategories();
+    renderProducts();
   });
 });
 
