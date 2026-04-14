@@ -815,3 +815,30 @@ html[dir="rtl"] .top-actions {
     min-height: 260px;
   }
 }
+@media (max-width: 700px) {
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .card img {
+    height: 110px;
+  }
+
+  .card .p {
+    padding: 8px;
+  }
+
+  .card .p b {
+    font-size: 12px;
+  }
+
+  .price {
+    font-size: 13px;
+  }
+
+  .card button {
+    font-size: 11px;
+    padding: 8px;
+  }
+}

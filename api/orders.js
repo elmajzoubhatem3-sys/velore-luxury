@@ -1,175 +1,127 @@
-import { initDb, pool } from "./_lib/db.js";
-import { requireAdmin } from "./_lib/auth.js";
+const ordersTableBody = document.getElementById("ordersTableBody");
+const ordersMsg = document.getElementById("ordersMsg");
+const clearOrdersBtn = document.getElementById("clearOrdersBtn");
+const audio = new Audio("/sounds/new-order.mp3");
+audio.preload = "auto";
 
-async function sendResendEmail({ to, subject, html }) {
-  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM || !to) return;
+function getToken() {
+  return localStorage.getItem("velore_admin_token") || "";
+}
 
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
+let lastSeenMaxId = Number(localStorage.getItem("velore_last_seen_order_id") || 0);
+let soundEnabled = false;
+
+function enableSound() {
+  audio.volume = 1;
+  audio.play().then(() => {
+    audio.pause();
+    audio.currentTime = 0;
+    soundEnabled = true;
+  }).catch(() => {});
+}
+
+document.addEventListener("click", enableSound, { once: true });
+document.addEventListener("touchstart", enableSound, { once: true });
+
+async function loadOrders() {
+  const token = getToken();
+  if (!token) {
+    ordersMsg.textContent = "Please login from admin first.";
+    return;
+  }
+
+  const res = await fetch("/api/orders", {
     headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: process.env.EMAIL_FROM,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      html
-    })
+      Authorization: `Bearer ${token}`
+    }
   });
+
+  const data = await res.json().catch(() => []);
+  if (!res.ok) {
+    ordersMsg.textContent = "Failed to load orders.";
+    return;
+  }
+
+  ordersMsg.textContent = `Total orders: ${data.length}`;
+
+  const maxId = data.reduce((m, x) => Math.max(m, Number(x.id || 0)), 0);
+
+  if (lastSeenMaxId && maxId > lastSeenMaxId && soundEnabled) {
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  }
+
+  lastSeenMaxId = maxId;
+  localStorage.setItem("velore_last_seen_order_id", String(lastSeenMaxId));
+
+  ordersTableBody.innerHTML = data.map((order) => `
+    <tr>
+      <td>${order.id}</td>
+      <td>
+        <b>${order.name}</b><br>
+        <span class="muted-text">${order.phone}</span><br>
+        <span class="muted-text">${order.email || ""}</span><br>
+        <span class="muted-text">${order.address}</span>
+      </td>
+      <td>
+        ${(Array.isArray(order.items_json) ? order.items_json : []).map((x) => `${x.title} x${x.qty}`).join("<br>")}
+      </td>
+      <td>${Number(order.total).toFixed(2)} $<br><span class="muted-text">${order.payment_method}</span></td>
+      <td>${new Date(order.created_at).toLocaleString()}</td>
+      <td>
+        <button class="ghost-btn" onclick="cancelOrder(${order.id})">Cancel Order</button>
+      </td>
+    </tr>
+  `).join("");
+
+  if (!data.length) {
+    ordersTableBody.innerHTML = `<tr><td colspan="6">No orders yet.</td></tr>`;
+  }
 }
 
-export default async function handler(req, res) {
-  await initDb();
+window.cancelOrder = async function cancelOrder(id) {
+  const token = getToken();
+  if (!token) return;
 
-  await pool.query(`
-    ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS email TEXT
-  `);
+  if (!confirm("Cancel this order?")) return;
 
-  if (req.method === "GET") {
-    const admin = requireAdmin(req, res);
-    if (!admin) return;
+  const res = await fetch("/api/orders", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ id, sendCancelEmail: true })
+  });
 
-    const { rows } = await pool.query(
-      `SELECT id, name, phone, email, address, payment_method, items_json, total, created_at
-       FROM orders
-       ORDER BY id DESC`
-    );
-    return res.status(200).json(rows);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || "Cancel failed");
+    return;
   }
 
-  if (req.method === "POST") {
-    const { name, phone, email, address, payment_method, items } = req.body || {};
-    if (!name || !phone || !email || !address || !payment_method || !Array.isArray(items) || !items.length) {
-      return res.status(400).json({ error: "Missing order data" });
-    }
+  loadOrders();
+};
 
-    const ids = items.map((x) => Number(x.product_id)).filter(Boolean);
-    const productsRes = await pool.query(
-      `SELECT id, title, price FROM products WHERE id = ANY($1::int[])`,
-      [ids]
-    );
-    const productMap = new Map(productsRes.rows.map((p) => [Number(p.id), p]));
+clearOrdersBtn.addEventListener("click", async () => {
+  const token = getToken();
+  if (!token) return;
 
-    let total = 0;
-    const normalizedItems = items.map((item) => {
-      const product = productMap.get(Number(item.product_id));
-      const qty = Math.max(1, Number(item.qty || 1));
-      const title = product?.title || "Item";
-      const price = Number(product?.price || 0);
-      total += price * qty;
+  if (!confirm("Clear all orders?")) return;
 
-      return {
-        product_id: Number(item.product_id),
-        title,
-        price,
-        qty
-      };
-    });
+  await fetch("/api/orders", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({})
+  });
 
-    const insert = await pool.query(
-      `
-      INSERT INTO orders (name, phone, email, address, payment_method, items_json, total)
-      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-      RETURNING id, name, phone, email, address, payment_method, items_json, total, created_at
-      `,
-      [name, phone, email, address, payment_method, JSON.stringify(normalizedItems), total.toFixed(2)]
-    );
+  lastSeenMaxId = 0;
+  localStorage.setItem("velore_last_seen_order_id", "0");
+  loadOrders();
+});
 
-    const order = insert.rows[0];
-
-    try {
-      await sendResendEmail({
-        to: process.env.ADMIN_EMAIL_RECEIVER,
-        subject: `New Order #${order.id} - VELORÉ`,
-        html: `
-          <h2>New Order</h2>
-          <p><b>Name:</b> ${order.name}</p>
-          <p><b>Phone:</b> ${order.phone}</p>
-          <p><b>Email:</b> ${order.email}</p>
-          <p><b>Address:</b> ${order.address}</p>
-          <p><b>Payment:</b> ${order.payment_method}</p>
-          <p><b>Total:</b> ${order.total} $</p>
-          <p><b>Items:</b></p>
-          <pre>${JSON.stringify(order.items_json, null, 2)}</pre>
-        `
-      });
-
-      await sendResendEmail({
-        to: order.email,
-        subject: `Your order #${order.id} - VELORÉ`,
-        html: `
-          <h2>Thank you for your order</h2>
-          <p>Hello ${order.name}, your order has been received successfully.</p>
-          <p><b>Order ID:</b> ${order.id}</p>
-          <p><b>Total:</b> ${order.total} $</p>
-        `
-      });
-    } catch {}
-
-    const whatsappText = [
-      "🛒 NEW ORDER",
-      "",
-      `#${order.id}`,
-      `👤 ${order.name}`,
-      `📞 ${order.phone}`,
-      `📍 ${order.address}`,
-      "",
-      "Items:",
-      ...order.items_json.map((x) => `- ${x.title} x${x.qty}`),
-      "",
-      `💰 Total: ${order.total}$`
-    ].join("\n");
-
-    const whatsappNumber = process.env.ADMIN_WHATSAPP_NUMBER || "";
-    const whatsappLink = whatsappNumber
-      ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappText)}`
-      : null;
-
-    return res.status(200).json({
-      order_id: order.id,
-      total: order.total,
-      whatsappLink
-    });
-  }
-
-  if (req.method === "DELETE") {
-    const admin = requireAdmin(req, res);
-    if (!admin) return;
-
-    const { id, sendCancelEmail } = req.body || {};
-
-    if (id) {
-      const existing = await pool.query(`SELECT * FROM orders WHERE id = $1`, [Number(id)]);
-      if (!existing.rows.length) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-
-      const order = existing.rows[0];
-
-      await pool.query(`DELETE FROM orders WHERE id = $1`, [Number(id)]);
-
-      if (sendCancelEmail && order.email) {
-        try {
-          await sendResendEmail({
-            to: order.email,
-            subject: `Order #${order.id} canceled - VELORÉ`,
-            html: `
-              <h2>Your order was canceled</h2>
-              <p>Hello ${order.name},</p>
-              <p>Your order <b>#${order.id}</b> has been canceled.</p>
-              <p>If you need anything, please contact us.</p>
-            `
-          });
-        } catch {}
-      }
-    } else {
-      await pool.query(`DELETE FROM orders`);
-    }
-
-    return res.status(200).json({ ok: true });
-  }
-
-  return res.status(405).json({ error: "Method not allowed" });
-}
+setInterval(loadOrders, 20000);
+loadOrders();
