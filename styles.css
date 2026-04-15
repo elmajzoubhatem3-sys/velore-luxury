@@ -842,3 +842,21 @@ html[dir="rtl"] .top-actions {
     padding: 8px;
   }
 }
+
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.old-price {
+  color: #9c948b;
+  text-decoration: line-through;
+  font-size: 15px;
+}
+
+.card button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

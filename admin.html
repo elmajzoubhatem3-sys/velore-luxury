@@ -43,9 +43,11 @@
       <h2>Products</h2>
       <form id="productForm" class="stack-form">
         <input name="title" placeholder="Product title" required />
-        <input name="price" type="number" step="0.01" placeholder="Price" required />
+        <input name="price" type="number" step="0.01" placeholder="New price" required />
+        <input name="old_price" type="number" step="0.01" placeholder="Old price (optional)" />
+        <input name="stock" type="number" min="0" placeholder="Stock" required />
         <select name="categoryId" id="productCategorySelect" required></select>
-        <textarea name="description" placeholder="Description" required></textarea>
+        <textarea name="description" placeholder="Description (optional)"></textarea>
 
         <div class="upload-box" id="productDropZone">
           <p>Drag & drop product image here</p>

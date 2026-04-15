@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     const { q = "", category = "" } = req.query || {};
 
     const values = [];
-    let where = [];
+    const where = [];
 
     if (q) {
       values.push(`%${q}%`);
@@ -28,6 +28,8 @@ export default async function handler(req, res) {
         p.id,
         p.title,
         p.price,
+        p.old_price,
+        p.stock,
         p.image_url AS image,
         p.description,
         c.title AS category,
@@ -47,38 +49,78 @@ export default async function handler(req, res) {
   if (!admin) return;
 
   if (req.method === "POST") {
-    const { title, price, categoryId, image, description } = req.body || {};
-    if (!title || !categoryId) {
-      return res.status(400).json({ error: "Missing fields" });
+    const {
+      title,
+      price,
+      old_price,
+      stock,
+      categoryId,
+      image,
+      description
+    } = req.body || {};
+
+    if (!title || !categoryId || price === "" || price === null || price === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const { rows } = await pool.query(
       `
-      INSERT INTO products (title, price, category_id, image_url, description)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO products (title, price, old_price, stock, category_id, image_url, description)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
       `,
-      [title, Number(price || 0), Number(categoryId), image || "", description || ""]
+      [
+        title,
+        Number(price),
+        old_price === "" || old_price === null || old_price === undefined ? null : Number(old_price),
+        Number(stock ?? 0),
+        Number(categoryId),
+        image || "",
+        description || ""
+      ]
     );
 
     return res.status(200).json({ id: rows[0].id });
   }
 
   if (req.method === "PUT") {
-    const { id, title, price, categoryId, image, description } = req.body || {};
-    if (!id) return res.status(400).json({ error: "Missing product id" });
+    const {
+      id,
+      title,
+      price,
+      old_price,
+      stock,
+      categoryId,
+      image,
+      description
+    } = req.body || {};
+
+    if (!id) {
+      return res.status(400).json({ error: "Missing product id" });
+    }
 
     await pool.query(
       `
       UPDATE products
       SET title = $1,
           price = $2,
-          category_id = $3,
-          image_url = $4,
-          description = $5
-      WHERE id = $6
+          old_price = $3,
+          stock = $4,
+          category_id = $5,
+          image_url = $6,
+          description = $7
+      WHERE id = $8
       `,
-      [title, Number(price || 0), Number(categoryId), image || "", description || "", Number(id)]
+      [
+        title,
+        Number(price),
+        old_price === "" || old_price === null || old_price === undefined ? null : Number(old_price),
+        Number(stock ?? 0),
+        Number(categoryId),
+        image || "",
+        description || "",
+        Number(id)
+      ]
     );
 
     return res.status(200).json({ ok: true });

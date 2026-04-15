@@ -17,6 +17,7 @@ let initialized = false;
 
 export async function initDb() {
   if (initialized) return;
+
   const client = await pool.connect();
   try {
     await client.query(`
@@ -37,6 +38,8 @@ export async function initDb() {
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         price NUMERIC(10,2) NOT NULL DEFAULT 0,
+        old_price NUMERIC(10,2),
+        stock INTEGER NOT NULL DEFAULT 0,
         category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
         image_url TEXT,
         description TEXT,
@@ -47,6 +50,7 @@ export async function initDb() {
         id BIGSERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         phone TEXT NOT NULL,
+        email TEXT,
         address TEXT NOT NULL,
         payment_method TEXT NOT NULL,
         items_json JSONB NOT NULL,
@@ -54,6 +58,22 @@ export async function initDb() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    await client.query(`
+      ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS old_price NUMERIC(10,2)
+    `);
+
+    await client.query(`
+      ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0
+    `);
+
+    await client.query(`
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS email TEXT
+    `);
+
     initialized = true;
   } finally {
     client.release();

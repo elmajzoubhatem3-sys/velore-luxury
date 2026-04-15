@@ -14,7 +14,9 @@ const translations = {
     noCategories: "No categories yet.",
     noProducts: "No products yet.",
     emptyCart: "Your cart is empty.",
-    orderReceived: "Order received ✅"
+    orderReceived: "Order received ✅",
+    clearCart: "Clear cart",
+    remove: "Remove"
   },
   ar: {
     shopByCategory: "تسوّق حسب الفئة",
@@ -24,7 +26,9 @@ const translations = {
     noCategories: "لا توجد فئات بعد.",
     noProducts: "لا توجد منتجات بعد.",
     emptyCart: "السلة فارغة.",
-    orderReceived: "تم استلام الطلب ✅"
+    orderReceived: "تم استلام الطلب ✅",
+    clearCart: "تفريغ السلة",
+    remove: "حذف"
   },
   fr: {
     shopByCategory: "Acheter par catégorie",
@@ -34,7 +38,9 @@ const translations = {
     noCategories: "Aucune catégorie pour le moment.",
     noProducts: "Aucun produit pour le moment.",
     emptyCart: "Le panier est vide.",
-    orderReceived: "Commande reçue ✅"
+    orderReceived: "Commande reçue ✅",
+    clearCart: "Vider le panier",
+    remove: "Supprimer"
   }
 };
 
@@ -119,9 +125,14 @@ function renderProducts() {
       <div class="p">
         <b>${p.title}</b>
         <div class="muted-text">${p.category || ""}</div>
-        <div class="price">${money(p.price)} $</div>
+        <div class="price-row">
+          ${p.old_price ? `<span class="old-price">${money(p.old_price)} $</span>` : ""}
+          <div class="price">${money(p.price)} $</div>
+        </div>
       </div>
-      <button data-cart="${p.id}">Add to cart</button>
+      <button data-cart="${p.id}" ${Number(p.stock || 0) <= 0 ? "disabled" : ""}>
+        ${Number(p.stock || 0) <= 0 ? "Out of stock" : "Add to cart"}
+      </button>
     </div>
   `).join("");
 
@@ -166,9 +177,32 @@ function renderBanners() {
 }
 
 function addToCart(id) {
+  const product = PRODUCTS.find((p) => Number(p.id) === Number(id));
+  if (!product) return;
+
   const existing = cart.find((x) => x.product_id === id);
+  const currentQty = existing ? existing.qty : 0;
+
+  if (currentQty + 1 > Number(product.stock || 0)) {
+    alert(`Only ${product.stock} left in stock`);
+    return;
+  }
+
   if (existing) existing.qty += 1;
   else cart.push({ product_id: id, qty: 1 });
+
+  updateCartCount();
+}
+
+function removeFromCart(id) {
+  cart = cart.filter((x) => x.product_id !== id);
+  renderCart();
+  updateCartCount();
+}
+
+function clearCart() {
+  cart = [];
+  renderCart();
   updateCartCount();
 }
 
@@ -179,28 +213,42 @@ function updateCartCount() {
 function renderCart() {
   let total = 0;
 
-  cartItems.innerHTML = cart.map((item) => {
-    const product = PRODUCTS.find((p) => p.id === item.product_id);
-    if (!product) return "";
+  if (!cart.length) {
+    cartItems.innerHTML = `<div class="admin-card">${t("emptyCart")}</div>`;
+    cartTotal.textContent = "0.00";
+    return;
+  }
 
-    total += Number(product.price || 0) * item.qty;
+  cartItems.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button id="clearCartBtn" class="ghost-btn">${t("clearCart")}</button>
+    </div>
+    ${cart.map((item) => {
+      const product = PRODUCTS.find((p) => p.id === item.product_id);
+      if (!product) return "";
 
-    return `
-      <div class="row">
-        <div>
-          <b>${product.title}</b>
-          <div class="muted-text">${money(product.price)} $</div>
+      total += Number(product.price || 0) * item.qty;
+
+      return `
+        <div class="row">
+          <div>
+            <b>${product.title}</b>
+            <div class="muted-text">${money(product.price)} $</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button class="ghost-btn" data-minus="${product.id}">-</button>
+            <b>${item.qty}</b>
+            <button class="ghost-btn" data-plus="${product.id}">+</button>
+            <button class="ghost-btn" data-remove="${product.id}">${t("remove")}</button>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="ghost-btn" data-minus="${product.id}">-</button>
-          <b>${item.qty}</b>
-          <button class="ghost-btn" data-plus="${product.id}">+</button>
-        </div>
-      </div>
-    `;
-  }).join("");
+      `;
+    }).join("")}
+  `;
 
   cartTotal.textContent = money(total);
+
+  document.getElementById("clearCartBtn")?.addEventListener("click", clearCart);
 
   cartItems.querySelectorAll("[data-minus]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -217,10 +265,23 @@ function renderCart() {
     btn.addEventListener("click", () => {
       const id = Number(btn.dataset.plus);
       const item = cart.find((x) => x.product_id === id);
-      if (!item) return;
+      const product = PRODUCTS.find((p) => p.id === id);
+      if (!item || !product) return;
+
+      if (item.qty + 1 > Number(product.stock || 0)) {
+        alert(`Only ${product.stock} left in stock`);
+        return;
+      }
+
       item.qty += 1;
       renderCart();
       updateCartCount();
+    });
+  });
+
+  cartItems.querySelectorAll("[data-remove]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      removeFromCart(Number(btn.dataset.remove));
     });
   });
 }
@@ -264,9 +325,18 @@ document.getElementById("checkoutForm")?.addEventListener("submit", async (e) =>
     })
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  let data = {};
+
+  try {
+    data = JSON.parse(text);
+  } catch {
+    alert(text || "Order failed");
+    return;
+  }
+
   if (!res.ok) {
-    alert(data.error || "Order failed");
+    alert(data.error || data.details || "Order failed");
     return;
   }
 
@@ -278,6 +348,8 @@ document.getElementById("checkoutForm")?.addEventListener("submit", async (e) =>
   updateCartCount();
   cartDialog.close();
   e.target.reset();
+  await loadProducts();
+  renderProducts();
   alert(t("orderReceived"));
 });
 

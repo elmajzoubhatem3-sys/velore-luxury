@@ -101,6 +101,8 @@ async function renderProducts() {
               <div>
                 <b>${p.title}</b>
                 <div class="muted-text">${p.category || "-"} • ${Number(p.price || 0).toFixed(2)} $</div>
+                <div class="muted-text">Old price: ${p.old_price ? Number(p.old_price).toFixed(2) + " $" : "-"}</div>
+                <div class="muted-text">Stock: ${Number(p.stock || 0)}</div>
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -269,6 +271,8 @@ productForm.addEventListener("submit", async (e) => {
     const payload = {
       title: fd.get("title"),
       price: fd.get("price"),
+      old_price: fd.get("old_price"),
+      stock: fd.get("stock"),
       categoryId: fd.get("categoryId"),
       description: fd.get("description"),
       image
@@ -365,6 +369,8 @@ window.editProduct = async function editProduct(id) {
 
   productForm.elements.title.value = product.title || "";
   productForm.elements.price.value = product.price || "";
+  productForm.elements.old_price.value = product.old_price || "";
+  productForm.elements.stock.value = product.stock || 0;
   productForm.elements.categoryId.value = product.category_id || "";
   productForm.elements.description.value = product.description || "";
 
