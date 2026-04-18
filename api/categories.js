@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
     if (req.method === "GET") {
       const { rows } = await pool.query(
-        `SELECT id, title FROM categories ORDER BY title ASC`
+        `SELECT id, name AS title FROM categories ORDER BY name ASC`
       );
       return res.status(200).json(rows);
     }
@@ -24,11 +24,11 @@ export default async function handler(req, res) {
 
       const { rows } = await pool.query(
         `
-        INSERT INTO categories (title)
+        INSERT INTO categories (name)
         VALUES ($1)
-        ON CONFLICT (title)
-        DO UPDATE SET title = EXCLUDED.title
-        RETURNING id, title
+        ON CONFLICT (name)
+        DO UPDATE SET name = EXCLUDED.name
+        RETURNING id, name AS title
         `,
         [String(title).trim()]
       );
