@@ -17,20 +17,28 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const { title } = req.body || {};
+      const cleanTitle = String(title || "").trim();
 
-      if (!title || !String(title).trim()) {
+      if (!cleanTitle) {
         return res.status(400).json({ error: "Category title required" });
+      }
+
+      const existing = await pool.query(
+        `SELECT id, name AS title FROM categories WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+        [cleanTitle]
+      );
+
+      if (existing.rows.length) {
+        return res.status(200).json(existing.rows[0]);
       }
 
       const { rows } = await pool.query(
         `
         INSERT INTO categories (name)
         VALUES ($1)
-        ON CONFLICT (name)
-        DO UPDATE SET name = EXCLUDED.name
         RETURNING id, name AS title
         `,
-        [String(title).trim()]
+        [cleanTitle]
       );
 
       return res.status(200).json(rows[0]);
