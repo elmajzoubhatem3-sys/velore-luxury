@@ -15,6 +15,11 @@ export default async function handler(req, res) {
       ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0
     `);
 
+    await pool.query(`
+      ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS category_id INTEGER
+    `);
+
     if (req.method === "GET") {
       const { q = "", category = "" } = req.query || {};
 
@@ -28,7 +33,7 @@ export default async function handler(req, res) {
 
       if (category) {
         values.push(category);
-        where.push(`c.title = $${values.length}`);
+        where.push(`COALESCE(c.title, c.name) = $${values.length}`);
       }
 
       const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
@@ -43,7 +48,7 @@ export default async function handler(req, res) {
           p.stock,
           p.image_url AS image,
           p.description,
-          c.title AS category,
+          COALESCE(c.title, c.name) AS category,
           p.category_id
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
@@ -79,6 +84,15 @@ export default async function handler(req, res) {
         price === undefined
       ) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const categoryCheck = await pool.query(
+        `SELECT id FROM categories WHERE id = $1 LIMIT 1`,
+        [Number(categoryId)]
+      );
+
+      if (!categoryCheck.rows.length) {
+        return res.status(400).json({ error: "Invalid category" });
       }
 
       const { rows } = await pool.query(
