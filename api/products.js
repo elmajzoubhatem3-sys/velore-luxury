@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
       if (q) {
         values.push(`%${q}%`);
-        where.push(`p.title ILIKE $${values.length}`);
+        where.push(`LOWER(COALESCE(p.title, p.name)) LIKE LOWER($${values.length})`);
       }
 
       if (category) {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
         `
         SELECT
           p.id,
-          p.title,
+          COALESCE(p.title, p.name) AS title,
           p.price,
           p.old_price,
           p.stock,
@@ -75,8 +75,10 @@ export default async function handler(req, res) {
         description
       } = req.body || {};
 
+      const cleanTitle = String(title || "").trim();
+
       if (
-        !title ||
+        !cleanTitle ||
         categoryId === undefined ||
         categoryId === null ||
         price === "" ||
@@ -97,12 +99,12 @@ export default async function handler(req, res) {
 
       const { rows } = await pool.query(
         `
-        INSERT INTO products (title, price, old_price, stock, category_id, image_url, description)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO products (title, name, price, old_price, stock, category_id, image_url, description)
+        VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
         RETURNING id
         `,
         [
-          String(title).trim(),
+          cleanTitle,
           Number(price),
           old_price === "" || old_price === null || old_price === undefined
             ? null
@@ -129,6 +131,8 @@ export default async function handler(req, res) {
         description
       } = req.body || {};
 
+      const cleanTitle = String(title || "").trim();
+
       if (!id) {
         return res.status(400).json({ error: "Missing product id" });
       }
@@ -137,6 +141,7 @@ export default async function handler(req, res) {
         `
         UPDATE products
         SET title = $1,
+            name = $1,
             price = $2,
             old_price = $3,
             stock = $4,
@@ -146,7 +151,7 @@ export default async function handler(req, res) {
         WHERE id = $8
         `,
         [
-          String(title || "").trim(),
+          cleanTitle,
           Number(price),
           old_price === "" || old_price === null || old_price === undefined
             ? null
