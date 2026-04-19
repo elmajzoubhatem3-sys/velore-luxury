@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
     if (req.method === "GET") {
       const { rows } = await pool.query(
-        `SELECT id, name AS title FROM categories ORDER BY name ASC`
+        `SELECT id, COALESCE(title, name) AS title FROM categories ORDER BY COALESCE(title, name) ASC`
       );
       return res.status(200).json(rows);
     }
@@ -24,7 +24,10 @@ export default async function handler(req, res) {
       }
 
       const existing = await pool.query(
-        `SELECT id, name AS title FROM categories WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+        `SELECT id, COALESCE(title, name) AS title
+         FROM categories
+         WHERE LOWER(COALESCE(title, name)) = LOWER($1)
+         LIMIT 1`,
         [cleanTitle]
       );
 
@@ -34,9 +37,9 @@ export default async function handler(req, res) {
 
       const { rows } = await pool.query(
         `
-        INSERT INTO categories (name)
-        VALUES ($1)
-        RETURNING id, name AS title
+        INSERT INTO categories (title, name)
+        VALUES ($1, $1)
+        RETURNING id, COALESCE(title, name) AS title
         `,
         [cleanTitle]
       );
