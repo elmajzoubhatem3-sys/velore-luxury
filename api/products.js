@@ -30,6 +30,11 @@ export default async function handler(req, res) {
       ADD COLUMN IF NOT EXISTS images TEXT[]
     `);
 
+    await pool.query(`
+      ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS show_popup BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+
     if (req.method === "GET") {
       const { rows } = await pool.query(`
         SELECT
@@ -41,6 +46,7 @@ export default async function handler(req, res) {
           p.image_url AS image,
           p.images,
           p.description,
+          p.show_popup,
           COALESCE(
             ARRAY_REMOVE(ARRAY_AGG(DISTINCT COALESCE(c.title, c.name)), NULL),
             '{}'
@@ -68,7 +74,8 @@ export default async function handler(req, res) {
         images: Array.isArray(row.images) && row.images.length
           ? row.images
           : [row.image].filter(Boolean),
-        category: Array.isArray(row.categories) && row.categories.length ? row.categories[0] : ""
+        category: Array.isArray(row.categories) && row.categories.length ? row.categories[0] : "",
+        show_popup: !!row.show_popup
       }));
 
       return res.status(200).json(mapped);
@@ -87,7 +94,8 @@ export default async function handler(req, res) {
         categoryIds,
         image,
         images,
-        description
+        description,
+        show_popup
       } = req.body || {};
 
       const cleanTitle = String(title || "").trim();
@@ -131,9 +139,10 @@ export default async function handler(req, res) {
           category_ids,
           image_url,
           images,
-          description
+          description,
+          show_popup
         )
-        VALUES ($1, $1, $2, $3, $4, $5, $6::int[], $7, $8::text[], $9)
+        VALUES ($1, $1, $2, $3, $4, $5, $6::int[], $7, $8::text[], $9, $10)
         RETURNING id
         `,
         [
@@ -145,7 +154,8 @@ export default async function handler(req, res) {
           cleanCategoryIds,
           cleanImages[0],
           cleanImages,
-          description || ""
+          description || "",
+          !!show_popup
         ]
       );
 
@@ -163,7 +173,8 @@ export default async function handler(req, res) {
         categoryIds,
         image,
         images,
-        description
+        description,
+        show_popup
       } = req.body || {};
 
       const cleanTitle = String(title || "").trim();
@@ -190,8 +201,9 @@ export default async function handler(req, res) {
             category_ids = $6::int[],
             image_url = $7,
             images = $8::text[],
-            description = $9
-        WHERE id = $10
+            description = $9,
+            show_popup = $10
+        WHERE id = $11
         `,
         [
           cleanTitle,
@@ -203,6 +215,7 @@ export default async function handler(req, res) {
           cleanImages[0] || "",
           cleanImages,
           description || "",
+          !!show_popup,
           Number(id)
         ]
       );

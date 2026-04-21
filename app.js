@@ -437,7 +437,7 @@ document.addEventListener("click", () => {
 });
 
 function openOfferPopup() {
-  const offerProduct = PRODUCTS.find((p) => Number(p.old_price || 0) > Number(p.price || 0));
+  const offerProduct = PRODUCTS.find((p) => p.show_popup === true);
   if (!offerProduct || !offerPopup || !offerPopupContent) return;
 
   const image = (Array.isArray(offerProduct.images) && offerProduct.images[0]) || offerProduct.image || "";
@@ -447,7 +447,7 @@ function openOfferPopup() {
     <div class="offer-popup-badge">Special Offer</div>
     <h3 class="offer-popup-title">${offerProduct.title}</h3>
     <div class="price-row" style="justify-content:center;">
-      <span class="old-price">${money(offerProduct.old_price)} $</span>
+      ${offerProduct.old_price ? `<span class="old-price">${money(offerProduct.old_price)} $</span>` : ""}
       <div class="price">${money(offerProduct.price)} $</div>
     </div>
     <button id="offerPopupGo" class="primary-btn" type="button">View Product</button>

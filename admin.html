@@ -52,21 +52,20 @@
           <div id="productCategoryChecks" class="category-check-grid"></div>
         </div>
 
+        <label class="popup-toggle-row">
+          <input type="checkbox" id="showPopupInput" name="show_popup" />
+          <span>Show this product in popup on website</span>
+        </label>
+
         <textarea name="description" placeholder="Description (optional)"></textarea>
 
         <div class="upload-box" id="productDropZone">
-          <p>Drag & drop main product image here</p>
-          <p class="muted-text">or click to choose file</p>
-          <input type="file" id="productImageInput" accept="image/*" hidden />
+          <p>Drag & drop product images here</p>
+          <p class="muted-text">or click to choose one or more files</p>
+          <input type="file" id="productImageInput" accept="image/*" multiple hidden />
         </div>
 
-        <img id="productPreview" class="upload-preview" style="display:none;" alt="preview" />
-
-        <div class="stack-form">
-          <input name="image2" placeholder="Second image URL (optional)" />
-          <input name="image3" placeholder="Third image URL (optional)" />
-          <input name="image4" placeholder="Fourth image URL (optional)" />
-        </div>
+        <div id="productPreviewGrid" class="multi-upload-preview" style="display:none;"></div>
 
         <button class="primary-btn" type="submit">Save Product</button>
       </form>
