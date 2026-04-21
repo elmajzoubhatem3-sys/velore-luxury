@@ -1,8 +1,10 @@
 async function loadProduct() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
+  const page = document.getElementById("productPage");
+
   if (!id) {
-    document.getElementById("productPage").innerHTML = "<p>Product not found.</p>";
+    page.innerHTML = "<p>Product not found.</p>";
     return;
   }
 
@@ -11,21 +13,53 @@ async function loadProduct() {
   const product = products.find((p) => String(p.id) === String(id));
 
   if (!product) {
-    document.getElementById("productPage").innerHTML = "<p>Product not found.</p>";
+    page.innerHTML = "<p>Product not found.</p>";
     return;
   }
 
+  const images = Array.isArray(product.images) && product.images.length
+    ? product.images
+    : [product.image].filter(Boolean);
+
+  const categoriesText = Array.isArray(product.categories) && product.categories.length
+    ? product.categories.join(" • ")
+    : (product.category || "");
+
   document.title = `${product.title} - VELORÉ`;
 
-  document.getElementById("productPage").innerHTML = `
+  page.innerHTML = `
     <div>
-      <img src="${product.image || ""}" alt="${product.title}" class="product-main-image" onerror="this.style.display='none'">
+      <div class="product-image-zoom-wrap">
+        <img id="mainProductImage" src="${images[0] || ""}" alt="${product.title}" class="product-main-image" onerror="this.style.display='none'">
+      </div>
+
+      ${
+        images.length > 1
+          ? `
+            <div class="product-thumbs">
+              ${images.map((src, i) => `
+                <img
+                  src="${src}"
+                  data-src="${src}"
+                  class="product-thumb ${i === 0 ? "active-thumb" : ""}"
+                  alt="${product.title}"
+                >
+              `).join("")}
+            </div>
+          `
+          : ""
+      }
     </div>
 
     <div class="product-meta">
-      <div class="product-category">${product.category || ""}</div>
+      <div class="product-category">${categoriesText}</div>
       <h1>${product.title}</h1>
-      <div class="product-price">${Number(product.price).toFixed(2)} $</div>
+
+      <div class="price-row">
+        ${product.old_price ? `<span class="old-price">${Number(product.old_price).toFixed(2)} $</span>` : ""}
+        <div class="product-price">${Number(product.price).toFixed(2)} $</div>
+      </div>
+
       <div class="product-desc">${product.description || ""}</div>
 
       <div class="product-actions">
@@ -34,6 +68,15 @@ async function loadProduct() {
       </div>
     </div>
   `;
+
+  const mainImage = document.getElementById("mainProductImage");
+  document.querySelectorAll(".product-thumb").forEach((thumb) => {
+    thumb.addEventListener("click", () => {
+      document.querySelectorAll(".product-thumb").forEach((t) => t.classList.remove("active-thumb"));
+      thumb.classList.add("active-thumb");
+      mainImage.src = thumb.dataset.src;
+    });
+  });
 
   document.getElementById("shareBtn").addEventListener("click", async () => {
     const shareData = {

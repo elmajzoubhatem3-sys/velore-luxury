@@ -5,7 +5,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 const categoryForm = document.getElementById("categoryForm");
 const adminCategoriesList = document.getElementById("adminCategoriesList");
-const productCategorySelect = document.getElementById("productCategorySelect");
+const productCategoryChecks = document.getElementById("productCategoryChecks");
 
 const productForm = document.getElementById("productForm");
 const adminProductsList = document.getElementById("adminProductsList");
@@ -26,6 +26,7 @@ let productFile = null;
 let bannerFile = null;
 let editingProductId = null;
 let currentProductImage = "";
+let currentExtraImages = [];
 
 function getToken() {
   return localStorage.getItem("velore_admin_token") || "";
@@ -68,9 +69,14 @@ async function loadBanners() {
 async function renderCategories() {
   const categories = await loadCategories();
 
-  productCategorySelect.innerHTML = categories.length
-    ? categories.map((c) => `<option value="${c.id}">${c.title}</option>`).join("")
-    : `<option value="">No categories yet</option>`;
+  productCategoryChecks.innerHTML = categories.length
+    ? categories.map((c) => `
+        <label class="category-check-item">
+          <input type="checkbox" name="categoryIds" value="${c.id}">
+          <span>${c.title}</span>
+        </label>
+      `).join("")
+    : `<div class="muted-text">No categories yet</div>`;
 
   adminCategoriesList.innerHTML = `
     <h3>Categories</h3>
@@ -94,23 +100,33 @@ async function renderProducts() {
     <h3>Products</h3>
     ${
       products.length
-        ? products.map((p) => `
-          <div class="admin-item">
-            <div style="display:flex;gap:12px;align-items:center;">
-              ${p.image ? `<img src="${p.image}" class="admin-thumb" alt="${p.title}" onerror="this.style.display='none'">` : ""}
-              <div>
-                <b>${p.title}</b>
-                <div class="muted-text">${p.category || "-"} • ${Number(p.price || 0).toFixed(2)} $</div>
-                <div class="muted-text">Old price: ${p.old_price ? Number(p.old_price).toFixed(2) + " $" : "-"}</div>
-                <div class="muted-text">Stock: ${Number(p.stock || 0)}</div>
+        ? products.map((p) => {
+            const categoriesText = Array.isArray(p.categories) && p.categories.length
+              ? p.categories.join(" • ")
+              : (p.category || "-");
+            const images = Array.isArray(p.images) && p.images.length
+              ? p.images
+              : [p.image].filter(Boolean);
+
+            return `
+              <div class="admin-item">
+                <div style="display:flex;gap:12px;align-items:center;">
+                  ${images[0] ? `<img src="${images[0]}" class="admin-thumb" alt="${p.title}" onerror="this.style.display='none'">` : ""}
+                  <div>
+                    <b>${p.title}</b>
+                    <div class="muted-text">${categoriesText} • ${Number(p.price || 0).toFixed(2)} $</div>
+                    <div class="muted-text">Old price: ${p.old_price ? Number(p.old_price).toFixed(2) + " $" : "-"}</div>
+                    <div class="muted-text">Stock: ${Number(p.stock || 0)}</div>
+                    <div class="muted-text">Images: ${images.length}</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="ghost-btn" onclick="editProduct(${p.id})">Edit</button>
+                  <button class="ghost-btn" onclick="deleteProduct(${p.id})">Delete</button>
+                </div>
               </div>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="ghost-btn" onclick="editProduct(${p.id})">Edit</button>
-              <button class="ghost-btn" onclick="deleteProduct(${p.id})">Delete</button>
-            </div>
-          </div>
-        `).join("")
+            `;
+          }).join("")
         : `<div class="admin-item"><div class="muted-text">No products yet.</div></div>`
     }
   `;
@@ -256,26 +272,43 @@ productForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   try {
-    let image = currentProductImage;
+    let mainImage = currentProductImage;
 
     if (productFile) {
-      image = await uploadImage(productFile, "/api/upload-product-image");
+      mainImage = await uploadImage(productFile, "/api/upload-product-image");
     }
 
-    if (!editingProductId && !image) {
+    if (!editingProductId && !mainImage) {
       alert("Choose a product image first.");
       return;
     }
 
     const fd = new FormData(productForm);
+    const categoryIds = fd.getAll("categoryIds").map((x) => Number(x)).filter(Boolean);
+
+    if (!categoryIds.length) {
+      alert("Choose at least one category.");
+      return;
+    }
+
+    const extraImages = [
+      String(fd.get("image2") || "").trim(),
+      String(fd.get("image3") || "").trim(),
+      String(fd.get("image4") || "").trim()
+    ].filter(Boolean);
+
+    const images = [mainImage, ...extraImages.filter((src) => src !== mainImage)];
+
     const payload = {
       title: fd.get("title"),
       price: fd.get("price"),
       old_price: fd.get("old_price"),
       stock: fd.get("stock"),
-      categoryId: fd.get("categoryId"),
+      categoryId: categoryIds[0],
+      categoryIds,
       description: fd.get("description"),
-      image
+      image: mainImage,
+      images
     };
 
     if (editingProductId) {
@@ -294,10 +327,12 @@ productForm.addEventListener("submit", async (e) => {
 
     editingProductId = null;
     currentProductImage = "";
+    currentExtraImages = [];
     productFile = null;
     productPreview.style.display = "none";
     cancelEditBtn.style.display = "none";
     productForm.reset();
+    document.querySelectorAll('input[name="categoryIds"]').forEach((checkbox) => checkbox.checked = false);
     await renderProducts();
     alert("Product saved ✅");
   } catch (error) {
@@ -308,8 +343,10 @@ productForm.addEventListener("submit", async (e) => {
 cancelEditBtn.addEventListener("click", () => {
   editingProductId = null;
   currentProductImage = "";
+  currentExtraImages = [];
   productFile = null;
   productForm.reset();
+  document.querySelectorAll('input[name="categoryIds"]').forEach((checkbox) => checkbox.checked = false);
   productPreview.style.display = "none";
   cancelEditBtn.style.display = "none";
 });
@@ -366,13 +403,26 @@ window.editProduct = async function editProduct(id) {
 
   editingProductId = Number(id);
   currentProductImage = product.image || "";
+  currentExtraImages = Array.isArray(product.images)
+    ? product.images.slice(1)
+    : [];
 
   productForm.elements.title.value = product.title || "";
   productForm.elements.price.value = product.price || "";
   productForm.elements.old_price.value = product.old_price || "";
   productForm.elements.stock.value = product.stock || 0;
-  productForm.elements.categoryId.value = product.category_id || "";
   productForm.elements.description.value = product.description || "";
+  productForm.elements.image2.value = currentExtraImages[0] || "";
+  productForm.elements.image3.value = currentExtraImages[1] || "";
+  productForm.elements.image4.value = currentExtraImages[2] || "";
+
+  const selectedCategoryIds = Array.isArray(product.category_ids)
+    ? product.category_ids.map(Number)
+    : [Number(product.category_id)].filter(Boolean);
+
+  document.querySelectorAll('input[name="categoryIds"]').forEach((checkbox) => {
+    checkbox.checked = selectedCategoryIds.includes(Number(checkbox.value));
+  });
 
   if (product.image) {
     productPreview.src = product.image;

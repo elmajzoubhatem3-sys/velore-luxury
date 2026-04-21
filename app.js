@@ -59,6 +59,10 @@ const langMenu = document.getElementById("langMenu");
 const moreBtn = document.getElementById("moreBtn");
 const moreMenu = document.getElementById("moreMenu");
 
+const offerPopup = document.getElementById("offerPopup");
+const offerPopupContent = document.getElementById("offerPopupContent");
+const closeOfferPopup = document.getElementById("closeOfferPopup");
+
 function t(key) {
   return translations[currentLang]?.[key] || translations.en[key] || key;
 }
@@ -73,18 +77,28 @@ async function loadCategories() {
 }
 
 async function loadProducts() {
-  const qs = new URLSearchParams();
-  if (selectedCategory) qs.set("category", selectedCategory);
-  const q = (searchInput?.value || "").trim();
-  if (q) qs.set("q", q);
-
-  const res = await fetch(`/api/products?${qs.toString()}`);
+  const res = await fetch("/api/products");
   PRODUCTS = await res.json();
 }
 
 async function loadBanners() {
   const res = await fetch("/api/banners");
   BANNERS = await res.json();
+}
+
+function getFilteredProducts() {
+  const q = (searchInput?.value || "").trim().toLowerCase();
+
+  return PRODUCTS.filter((p) => {
+    const productCategories = Array.isArray(p.categories) && p.categories.length
+      ? p.categories
+      : [p.category].filter(Boolean);
+
+    const categoryOk = !selectedCategory || productCategories.includes(selectedCategory);
+    const searchOk = !q || String(p.title || "").toLowerCase().includes(q);
+
+    return categoryOk && searchOk;
+  });
 }
 
 function renderCategories() {
@@ -102,9 +116,8 @@ function renderCategories() {
   `).join("");
 
   categoryGrid.querySelectorAll(".category-pill").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", () => {
       selectedCategory = btn.dataset.category === selectedCategory ? null : btn.dataset.category;
-      await loadProducts();
       renderCategories();
       renderProducts();
     });
@@ -112,29 +125,36 @@ function renderCategories() {
 }
 
 function renderProducts() {
+  const items = getFilteredProducts();
   grid.innerHTML = "";
 
-  if (!PRODUCTS.length) {
+  if (!items.length) {
     grid.innerHTML = `<div class="admin-card">${t("noProducts")}</div>`;
     return;
   }
 
-  grid.innerHTML = PRODUCTS.map((p) => `
-    <div class="card">
-      <img src="${p.image || ""}" alt="${p.title}" data-product="${p.id}" onerror="this.style.display='none'">
-      <div class="p">
-        <b>${p.title}</b>
-        <div class="muted-text">${p.category || ""}</div>
-        <div class="price-row">
-          ${p.old_price ? `<span class="old-price">${money(p.old_price)} $</span>` : ""}
-          <div class="price">${money(p.price)} $</div>
+  grid.innerHTML = items.map((p) => {
+    const productCategories = Array.isArray(p.categories) && p.categories.length
+      ? p.categories.join(" • ")
+      : (p.category || "");
+
+    return `
+      <div class="card">
+        <img src="${p.image || ""}" alt="${p.title}" data-product="${p.id}" onerror="this.style.display='none'">
+        <div class="p">
+          <b>${p.title}</b>
+          <div class="muted-text">${productCategories}</div>
+          <div class="price-row">
+            ${p.old_price ? `<span class="old-price">${money(p.old_price)} $</span>` : ""}
+            <div class="price">${money(p.price)} $</div>
+          </div>
         </div>
+        <button data-cart="${p.id}" ${Number(p.stock || 0) <= 0 ? "disabled" : ""}>
+          ${Number(p.stock || 0) <= 0 ? "Out of stock" : "Add to cart"}
+        </button>
       </div>
-      <button data-cart="${p.id}" ${Number(p.stock || 0) <= 0 ? "disabled" : ""}>
-        ${Number(p.stock || 0) <= 0 ? "Out of stock" : "Add to cart"}
-      </button>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
   grid.querySelectorAll("[data-cart]").forEach((btn) => {
     btn.addEventListener("click", () => addToCart(Number(btn.dataset.cart)));
@@ -295,8 +315,7 @@ document.getElementById("closeCartBtn")?.addEventListener("click", () => {
   cartDialog.close();
 });
 
-searchInput?.addEventListener("input", async () => {
-  await loadProducts();
+searchInput?.addEventListener("input", () => {
   renderProducts();
 });
 
@@ -417,6 +436,34 @@ document.addEventListener("click", () => {
   closeMenus();
 });
 
+function openOfferPopup() {
+  const offerProduct = PRODUCTS.find((p) => Number(p.old_price || 0) > Number(p.price || 0));
+  if (!offerProduct || !offerPopup || !offerPopupContent) return;
+
+  const image = (Array.isArray(offerProduct.images) && offerProduct.images[0]) || offerProduct.image || "";
+
+  offerPopupContent.innerHTML = `
+    <img src="${image}" alt="${offerProduct.title}" class="offer-popup-image" onerror="this.style.display='none'">
+    <div class="offer-popup-badge">Special Offer</div>
+    <h3 class="offer-popup-title">${offerProduct.title}</h3>
+    <div class="price-row" style="justify-content:center;">
+      <span class="old-price">${money(offerProduct.old_price)} $</span>
+      <div class="price">${money(offerProduct.price)} $</div>
+    </div>
+    <button id="offerPopupGo" class="primary-btn" type="button">View Product</button>
+  `;
+
+  offerPopup.style.display = "flex";
+
+  document.getElementById("offerPopupGo")?.addEventListener("click", () => {
+    window.location.href = `/product.html?id=${offerProduct.id}`;
+  });
+}
+
+closeOfferPopup?.addEventListener("click", () => {
+  offerPopup.style.display = "none";
+});
+
 async function init() {
   await Promise.all([loadCategories(), loadProducts(), loadBanners()]);
   renderCategories();
@@ -424,6 +471,10 @@ async function init() {
   renderBanners();
   renderLanguage();
   updateCartCount();
+
+  setTimeout(() => {
+    openOfferPopup();
+  }, 900);
 }
 
 init();
