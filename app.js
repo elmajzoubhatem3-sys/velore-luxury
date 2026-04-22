@@ -71,6 +71,13 @@ function money(n) {
   return Number(n || 0).toFixed(2);
 }
 
+function shortText(text, maxLength = 68) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  if (value.length <= maxLength) return value;
+  return value.slice(0, maxLength).trim() + "...";
+}
+
 async function loadCategories() {
   const res = await fetch("/api/categories");
   CATEGORIES = await res.json();
@@ -95,7 +102,10 @@ function getFilteredProducts() {
       : [p.category].filter(Boolean);
 
     const categoryOk = !selectedCategory || productCategories.includes(selectedCategory);
-    const searchOk = !q || String(p.title || "").toLowerCase().includes(q);
+    const searchOk =
+      !q ||
+      String(p.title || "").toLowerCase().includes(q) ||
+      String(p.description || "").toLowerCase().includes(q);
 
     return categoryOk && searchOk;
   });
@@ -144,6 +154,7 @@ function renderProducts() {
         <div class="p">
           <b>${p.title}</b>
           <div class="muted-text">${productCategories}</div>
+          ${p.description ? `<div class="card-desc">${shortText(p.description, 72)}</div>` : ""}
           <div class="price-row">
             ${p.old_price ? `<span class="old-price">${money(p.old_price)} $</span>` : ""}
             <div class="price">${money(p.price)} $</div>
@@ -198,20 +209,21 @@ function renderBanners() {
 
 function addToCart(id) {
   const product = PRODUCTS.find((p) => Number(p.id) === Number(id));
-  if (!product) return;
+  if (!product) return false;
 
   const existing = cart.find((x) => x.product_id === id);
   const currentQty = existing ? existing.qty : 0;
 
   if (currentQty + 1 > Number(product.stock || 0)) {
     alert(`Only ${product.stock} left in stock`);
-    return;
+    return false;
   }
 
   if (existing) existing.qty += 1;
   else cart.push({ product_id: id, qty: 1 });
 
   updateCartCount();
+  return true;
 }
 
 function removeFromCart(id) {
@@ -450,13 +462,24 @@ function openOfferPopup() {
       ${offerProduct.old_price ? `<span class="old-price">${money(offerProduct.old_price)} $</span>` : ""}
       <div class="price">${money(offerProduct.price)} $</div>
     </div>
-    <button id="offerPopupGo" class="primary-btn" type="button">View Product</button>
+    <div class="offer-popup-desc">${shortText(offerProduct.description, 85)}</div>
+    <div class="offer-popup-actions">
+      <button id="offerPopupAdd" class="primary-btn" type="button">Add to cart</button>
+      <button id="offerPopupGo" class="ghost-btn" type="button">View Product</button>
+    </div>
   `;
 
   offerPopup.style.display = "flex";
 
   document.getElementById("offerPopupGo")?.addEventListener("click", () => {
     window.location.href = `/product.html?id=${offerProduct.id}`;
+  });
+
+  document.getElementById("offerPopupAdd")?.addEventListener("click", () => {
+    const ok = addToCart(Number(offerProduct.id));
+    if (ok) {
+      offerPopup.style.display = "none";
+    }
   });
 }
 
