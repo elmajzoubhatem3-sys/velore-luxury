@@ -16,7 +16,8 @@ const translations = {
     emptyCart: "Your cart is empty.",
     orderReceived: "Order received ✅",
     clearCart: "Clear cart",
-    remove: "Remove"
+    remove: "Remove",
+    readMore: "Read more"
   },
   ar: {
     shopByCategory: "تسوّق حسب الفئة",
@@ -28,7 +29,8 @@ const translations = {
     emptyCart: "السلة فارغة.",
     orderReceived: "تم استلام الطلب ✅",
     clearCart: "تفريغ السلة",
-    remove: "حذف"
+    remove: "حذف",
+    readMore: "اقرأ المزيد"
   },
   fr: {
     shopByCategory: "Acheter par catégorie",
@@ -40,7 +42,8 @@ const translations = {
     emptyCart: "Le panier est vide.",
     orderReceived: "Commande reçue ✅",
     clearCart: "Vider le panier",
-    remove: "Supprimer"
+    remove: "Supprimer",
+    readMore: "Voir plus"
   }
 };
 
@@ -69,13 +72,6 @@ function t(key) {
 
 function money(n) {
   return Number(n || 0).toFixed(2);
-}
-
-function shortText(text, maxLength = 68) {
-  const value = String(text || "").trim();
-  if (!value) return "";
-  if (value.length <= maxLength) return value;
-  return value.slice(0, maxLength).trim() + "...";
 }
 
 async function loadCategories() {
@@ -154,7 +150,9 @@ function renderProducts() {
         <div class="p">
           <b>${p.title}</b>
           <div class="muted-text">${productCategories}</div>
-          ${p.description ? `<div class="card-desc">${shortText(p.description, 72)}</div>` : ""}
+          <div class="read-more-line">
+            <a href="/product.html?id=${p.id}" class="read-more-link">${t("readMore")}</a>
+          </div>
           <div class="price-row">
             ${p.old_price ? `<span class="old-price">${money(p.old_price)} $</span>` : ""}
             <div class="price">${money(p.price)} $</div>
@@ -416,6 +414,7 @@ function renderLanguage() {
   if (searchInput) searchInput.placeholder = t("search");
   document.documentElement.lang = currentLang;
   document.documentElement.dir = currentLang === "ar" ? "rtl" : "ltr";
+  renderProducts();
 }
 
 document.querySelectorAll("[data-lang]").forEach((btn) => {
@@ -462,10 +461,9 @@ function openOfferPopup() {
       ${offerProduct.old_price ? `<span class="old-price">${money(offerProduct.old_price)} $</span>` : ""}
       <div class="price">${money(offerProduct.price)} $</div>
     </div>
-    <div class="offer-popup-desc">${shortText(offerProduct.description, 85)}</div>
     <div class="offer-popup-actions">
       <button id="offerPopupAdd" class="primary-btn" type="button">Add to cart</button>
-      <button id="offerPopupGo" class="ghost-btn" type="button">View Product</button>
+      <button id="offerPopupGo" class="ghost-btn" type="button">${t("readMore")}</button>
     </div>
   `;
 

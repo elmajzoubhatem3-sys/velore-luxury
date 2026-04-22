@@ -999,46 +999,23 @@ html[dir="rtl"] .top-actions {
   width: min(100%, 390px);
 }
 
-.product-grid {
-  border: 1px solid rgba(231, 221, 208, 0.92);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: var(--shadow-soft);
-  padding: 22px;
+.read-more-line {
+  margin-top: -2px;
 }
 
-.card-desc {
-  color: var(--muted);
+.read-more-link {
+  color: var(--gold-dark);
   font-size: 13px;
-  line-height: 1.6;
-  min-height: 42px;
+  font-weight: 700;
+  text-decoration: none;
 }
 
-.offer-popup-desc {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.7;
-  margin: 8px 0 16px;
-}
-
-.offer-popup-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
+.read-more-link:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 700px) {
   .search-input {
     width: min(100%, 260px);
-  }
-
-  .product-grid {
-    padding: 12px;
-  }
-
-  .card-desc {
-    font-size: 12px;
-    min-height: 36px;
   }
 }
