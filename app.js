@@ -1,7 +1,7 @@
 let PRODUCTS = [];
 let CATEGORIES = [];
 let BANNERS = [];
-let cart = [];
+let cart = JSON.parse(localStorage.getItem("velore_cart") || "[]");
 let selectedCategory = null;
 let currentLang = localStorage.getItem("velore_lang") || "en";
 
@@ -72,6 +72,10 @@ function t(key) {
 
 function money(n) {
   return Number(n || 0).toFixed(2);
+}
+
+function saveCart() {
+  localStorage.setItem("velore_cart", JSON.stringify(cart));
 }
 
 async function loadCategories() {
@@ -220,18 +224,21 @@ function addToCart(id) {
   if (existing) existing.qty += 1;
   else cart.push({ product_id: id, qty: 1 });
 
+  saveCart();
   updateCartCount();
   return true;
 }
 
 function removeFromCart(id) {
   cart = cart.filter((x) => x.product_id !== id);
+  saveCart();
   renderCart();
   updateCartCount();
 }
 
 function clearCart() {
   cart = [];
+  saveCart();
   renderCart();
   updateCartCount();
 }
@@ -286,6 +293,7 @@ function renderCart() {
       const item = cart.find((x) => x.product_id === id);
       if (!item) return;
       item.qty = Math.max(1, item.qty - 1);
+      saveCart();
       renderCart();
       updateCartCount();
     });
@@ -304,6 +312,7 @@ function renderCart() {
       }
 
       item.qty += 1;
+      saveCart();
       renderCart();
       updateCartCount();
     });
@@ -374,6 +383,7 @@ document.getElementById("checkoutForm")?.addEventListener("submit", async (e) =>
   }
 
   cart = [];
+  saveCart();
   updateCartCount();
   cartDialog.close();
   e.target.reset();

@@ -1,3 +1,11 @@
+function saveProductPageCart(cart) {
+  localStorage.setItem("velore_cart", JSON.stringify(cart));
+}
+
+function getProductPageCart() {
+  return JSON.parse(localStorage.getItem("velore_cart") || "[]");
+}
+
 async function loadProduct() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
@@ -63,7 +71,10 @@ async function loadProduct() {
       <div class="product-desc">${product.description || ""}</div>
 
       <div class="product-actions">
-        <button id="shareBtn" class="primary-btn" type="button">Share Product</button>
+        <button id="addToCartBtn" class="primary-btn" type="button" ${Number(product.stock || 0) <= 0 ? "disabled" : ""}>
+          ${Number(product.stock || 0) <= 0 ? "Out of stock" : "Add to cart"}
+        </button>
+        <button id="shareBtn" class="ghost-btn" type="button">Share Product</button>
         <a href="/" class="ghost-btn">Back to Store</a>
       </div>
     </div>
@@ -76,6 +87,23 @@ async function loadProduct() {
       thumb.classList.add("active-thumb");
       mainImage.src = thumb.dataset.src;
     });
+  });
+
+  document.getElementById("addToCartBtn")?.addEventListener("click", () => {
+    const cart = getProductPageCart();
+    const existing = cart.find((x) => Number(x.product_id) === Number(product.id));
+    const currentQty = existing ? existing.qty : 0;
+
+    if (currentQty + 1 > Number(product.stock || 0)) {
+      alert(`Only ${product.stock} left in stock`);
+      return;
+    }
+
+    if (existing) existing.qty += 1;
+    else cart.push({ product_id: Number(product.id), qty: 1 });
+
+    saveProductPageCart(cart);
+    alert("Added to cart ✅");
   });
 
   document.getElementById("shareBtn").addEventListener("click", async () => {

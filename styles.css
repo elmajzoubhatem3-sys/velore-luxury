@@ -1019,3 +1019,20 @@ html[dir="rtl"] .top-actions {
     width: min(100%, 260px);
   }
 }
+
+.search-input {
+  width: min(100%, 390px);
+  height: 48px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-size: 14px;
+  box-shadow: 0 6px 18px rgba(25, 20, 17, 0.06);
+}
+
+@media (max-width: 700px) {
+  .search-input {
+    width: min(100%, 240px);
+    height: 42px;
+    font-size: 13px;
+  }
+}
