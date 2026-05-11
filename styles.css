@@ -730,14 +730,12 @@ td {
   white-space: nowrap;
 }
 
-/* LTR = left side */
 html[dir="ltr"] .top-actions {
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
-/* RTL = right side */
 html[dir="rtl"] .top-actions {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 /* product page */
