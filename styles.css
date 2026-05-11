@@ -1086,3 +1086,70 @@ html[dir="rtl"] .top-actions {
   color: var(--muted);
   font-size: 13px;
 }
+
+.floating-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: auto;
+  width: 240px;
+  max-width: 80vw;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 18px 45px rgba(25, 20, 17, 0.1);
+  padding: 8px;
+  display: none;
+  z-index: 200;
+}
+
+.floating-menu.open {
+  display: block;
+}
+
+.menu-separator {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+}
+
+.more-category-title {
+  padding: 8px 12px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.floating-item.active-menu-category {
+  background: #fcf6ee;
+  color: var(--gold-dark);
+  font-weight: 800;
+}
+
+@media (max-width: 700px) {
+  .floating-menu {
+    right: 0;
+    left: auto;
+    width: 220px;
+    max-width: 78vw;
+    max-height: 62vh;
+    border-radius: 16px;
+  }
+
+  .floating-item {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .card img {
+    height: 160px;
+  }
+}

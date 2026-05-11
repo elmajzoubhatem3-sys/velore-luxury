@@ -7,11 +7,9 @@ let currentLang = localStorage.getItem("velore_lang") || "en";
 
 const translations = {
   en: {
-    shopByCategory: "Shop by Category",
     featured: "Featured Products",
     search: "Search products...",
     tagline: "Luxury that feels calm, soft, and timeless.",
-    noCategories: "No categories yet.",
     noProducts: "No products yet.",
     emptyCart: "Your cart is empty.",
     orderReceived: "Order received ✅",
@@ -20,11 +18,9 @@ const translations = {
     readMore: "Read more"
   },
   ar: {
-    shopByCategory: "تسوّق حسب الفئة",
     featured: "المنتجات",
     search: "ابحث عن المنتجات...",
     tagline: "فخامة هادئة ومريحة وأنيقة.",
-    noCategories: "لا توجد فئات بعد.",
     noProducts: "لا توجد منتجات بعد.",
     emptyCart: "السلة فارغة.",
     orderReceived: "تم استلام الطلب ✅",
@@ -33,11 +29,9 @@ const translations = {
     readMore: "اقرأ المزيد"
   },
   fr: {
-    shopByCategory: "Acheter par catégorie",
     featured: "Produits",
     search: "Rechercher des produits...",
     tagline: "Un luxe doux, calme et intemporel.",
-    noCategories: "Aucune catégorie pour le moment.",
     noProducts: "Aucun produit pour le moment.",
     emptyCart: "Le panier est vide.",
     orderReceived: "Commande reçue ✅",
@@ -48,7 +42,6 @@ const translations = {
 };
 
 const grid = document.getElementById("productGrid");
-const categoryGrid = document.getElementById("categoryGrid");
 const moreCategories = document.getElementById("moreCategories");
 const cartDialog = document.getElementById("cartDialog");
 const cartItems = document.getElementById("cartItems");
@@ -123,6 +116,10 @@ function getFilteredProducts() {
 function renderMoreCategories() {
   if (!moreCategories) return;
 
+  if (!selectedCategory && CATEGORIES.length) {
+    selectedCategory = CATEGORIES[0].title;
+  }
+
   moreCategories.innerHTML = `
     <div class="more-category-title">Categories</div>
     ${CATEGORIES.map((cat) => `
@@ -135,42 +132,11 @@ function renderMoreCategories() {
   moreCategories.querySelectorAll("[data-menu-category]").forEach((btn) => {
     btn.addEventListener("click", () => {
       selectedCategory = btn.dataset.menuCategory;
-      renderCategories();
       renderMoreCategories();
       renderProducts();
       closeMenus();
     });
   });
-}
-
-function renderCategories() {
-  categoryGrid.innerHTML = "";
-
-  if (!CATEGORIES.length) {
-    categoryGrid.innerHTML = `<div class="admin-card">${t("noCategories")}</div>`;
-    return;
-  }
-
-  if (!selectedCategory) {
-    selectedCategory = CATEGORIES[0].title;
-  }
-
-  categoryGrid.innerHTML = CATEGORIES.map((cat) => `
-    <button class="category-pill ${selectedCategory === cat.title ? "active-pill" : ""}" data-category="${cat.title}">
-      ${cat.title}
-    </button>
-  `).join("");
-
-  categoryGrid.querySelectorAll(".category-pill").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selectedCategory = btn.dataset.category;
-      renderCategories();
-      renderMoreCategories();
-      renderProducts();
-    });
-  });
-
-  renderMoreCategories();
 }
 
 function renderProducts() {
@@ -455,7 +421,6 @@ function startSlider() {
 }
 
 function renderLanguage() {
-  document.querySelector("[data-i18n='shopByCategory']").textContent = t("shopByCategory");
   document.querySelector("[data-i18n='featured']").textContent = t("featured");
   document.querySelector("[data-i18n='tagline']").textContent = t("tagline");
   if (searchInput) searchInput.placeholder = t("search");
@@ -535,7 +500,12 @@ closeOfferPopup?.addEventListener("click", () => {
 
 async function init() {
   await Promise.all([loadCategories(), loadProducts(), loadBanners()]);
-  renderCategories();
+
+  if (CATEGORIES.length) {
+    selectedCategory = CATEGORIES[0].title;
+  }
+
+  renderMoreCategories();
   renderProducts();
   renderBanners();
   renderLanguage();
