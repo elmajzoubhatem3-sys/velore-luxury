@@ -49,6 +49,7 @@ const translations = {
 
 const grid = document.getElementById("productGrid");
 const categoryGrid = document.getElementById("categoryGrid");
+const moreCategories = document.getElementById("moreCategories");
 const cartDialog = document.getElementById("cartDialog");
 const cartItems = document.getElementById("cartItems");
 const cartTotal = document.getElementById("cartTotal");
@@ -78,6 +79,14 @@ function saveCart() {
   localStorage.setItem("velore_cart", JSON.stringify(cart));
 }
 
+function productTitle(p) {
+  return currentLang === "ar" && p.title_ar ? p.title_ar : (p.title_en || p.title || "");
+}
+
+function productDescription(p) {
+  return currentLang === "ar" && p.description_ar ? p.description_ar : (p.description_en || p.description || "");
+}
+
 async function loadCategories() {
   const res = await fetch("/api/categories");
   CATEGORIES = await res.json();
@@ -104,10 +113,33 @@ function getFilteredProducts() {
     const categoryOk = !selectedCategory || productCategories.includes(selectedCategory);
     const searchOk =
       !q ||
-      String(p.title || "").toLowerCase().includes(q) ||
-      String(p.description || "").toLowerCase().includes(q);
+      productTitle(p).toLowerCase().includes(q) ||
+      productDescription(p).toLowerCase().includes(q);
 
     return categoryOk && searchOk;
+  });
+}
+
+function renderMoreCategories() {
+  if (!moreCategories) return;
+
+  moreCategories.innerHTML = `
+    <div class="more-category-title">Categories</div>
+    ${CATEGORIES.map((cat) => `
+      <button class="floating-item ${selectedCategory === cat.title ? "active-menu-category" : ""}" data-menu-category="${cat.title}">
+        ${cat.title}
+      </button>
+    `).join("")}
+  `;
+
+  moreCategories.querySelectorAll("[data-menu-category]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedCategory = btn.dataset.menuCategory;
+      renderCategories();
+      renderMoreCategories();
+      renderProducts();
+      closeMenus();
+    });
   });
 }
 
@@ -119,6 +151,10 @@ function renderCategories() {
     return;
   }
 
+  if (!selectedCategory) {
+    selectedCategory = CATEGORIES[0].title;
+  }
+
   categoryGrid.innerHTML = CATEGORIES.map((cat) => `
     <button class="category-pill ${selectedCategory === cat.title ? "active-pill" : ""}" data-category="${cat.title}">
       ${cat.title}
@@ -127,11 +163,14 @@ function renderCategories() {
 
   categoryGrid.querySelectorAll(".category-pill").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedCategory = btn.dataset.category === selectedCategory ? null : btn.dataset.category;
+      selectedCategory = btn.dataset.category;
       renderCategories();
+      renderMoreCategories();
       renderProducts();
     });
   });
+
+  renderMoreCategories();
 }
 
 function renderProducts() {
@@ -150,9 +189,9 @@ function renderProducts() {
 
     return `
       <div class="card">
-        <img src="${p.image || ""}" alt="${p.title}" data-product="${p.id}" onerror="this.style.display='none'">
+        <img src="${p.image || ""}" alt="${productTitle(p)}" data-product="${p.id}" onerror="this.style.display='none'">
         <div class="p">
-          <b>${p.title}</b>
+          <b>${productTitle(p)}</b>
           <div class="muted-text">${productCategories}</div>
           <div class="read-more-line">
             <a href="/product.html?id=${p.id}" class="read-more-link">${t("readMore")}</a>
@@ -269,7 +308,7 @@ function renderCart() {
       return `
         <div class="row">
           <div>
-            <b>${product.title}</b>
+            <b>${productTitle(product)}</b>
             <div class="muted-text">${money(product.price)} $</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -350,9 +389,7 @@ document.getElementById("checkoutForm")?.addEventListener("submit", async (e) =>
 
   const res = await fetch("/api/orders", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: fd.get("name"),
       phone: fd.get("phone"),
@@ -425,6 +462,7 @@ function renderLanguage() {
   document.documentElement.lang = currentLang;
   document.documentElement.dir = currentLang === "ar" ? "rtl" : "ltr";
   renderProducts();
+  renderMoreCategories();
 }
 
 document.querySelectorAll("[data-lang]").forEach((btn) => {
@@ -464,9 +502,9 @@ function openOfferPopup() {
   const image = (Array.isArray(offerProduct.images) && offerProduct.images[0]) || offerProduct.image || "";
 
   offerPopupContent.innerHTML = `
-    <img src="${image}" alt="${offerProduct.title}" class="offer-popup-image" onerror="this.style.display='none'">
+    <img src="${image}" alt="${productTitle(offerProduct)}" class="offer-popup-image" onerror="this.style.display='none'">
     <div class="offer-popup-badge">Special Offer</div>
-    <h3 class="offer-popup-title">${offerProduct.title}</h3>
+    <h3 class="offer-popup-title">${productTitle(offerProduct)}</h3>
     <div class="price-row" style="justify-content:center;">
       ${offerProduct.old_price ? `<span class="old-price">${money(offerProduct.old_price)} $</span>` : ""}
       <div class="price">${money(offerProduct.price)} $</div>

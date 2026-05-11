@@ -10,6 +10,7 @@ const productCategoryChecks = document.getElementById("productCategoryChecks");
 const productForm = document.getElementById("productForm");
 const adminProductsList = document.getElementById("adminProductsList");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
+const adminProductSearch = document.getElementById("adminProductSearch");
 
 const bannerForm = document.getElementById("bannerForm");
 const adminBannersList = document.getElementById("adminBannersList");
@@ -27,16 +28,14 @@ let productFiles = [];
 let bannerFile = null;
 let editingProductId = null;
 let currentProductImages = [];
+let cachedProducts = [];
 
 function getToken() {
   return localStorage.getItem("velore_admin_token") || "";
 }
 
 function authHeaders(extra = {}) {
-  return {
-    ...extra,
-    Authorization: `Bearer ${getToken()}`
-  };
+  return { ...extra, Authorization: `Bearer ${getToken()}` };
 }
 
 function isLoggedIn() {
@@ -85,7 +84,11 @@ async function renderCategories() {
         ? categories.map((c) => `
           <div class="admin-item">
             <div><b>${c.title}</b></div>
-            <button class="ghost-btn" onclick="deleteCategory(${c.id})">Delete</button>
+            <div class="sort-actions">
+              <button class="ghost-btn" onclick="moveCategory(${c.id}, 'up')">Up</button>
+              <button class="ghost-btn" onclick="moveCategory(${c.id}, 'down')">Down</button>
+              <button class="ghost-btn" onclick="deleteCategory(${c.id})">Delete</button>
+            </div>
           </div>
         `).join("")
         : `<div class="admin-item"><div class="muted-text">No categories yet.</div></div>`
@@ -93,9 +96,11 @@ async function renderCategories() {
   `;
 }
 
-async function renderProducts() {
-  const products = await loadProducts();
+function getProductDisplayTitle(p) {
+  return p.title_en || p.title || "";
+}
 
+function renderProductsFromList(products) {
   adminProductsList.innerHTML = `
     <h3>Products</h3>
     ${
@@ -104,6 +109,7 @@ async function renderProducts() {
             const categoriesText = Array.isArray(p.categories) && p.categories.length
               ? p.categories.join(" • ")
               : (p.category || "-");
+
             const images = Array.isArray(p.images) && p.images.length
               ? p.images
               : [p.image].filter(Boolean);
@@ -111,9 +117,10 @@ async function renderProducts() {
             return `
               <div class="admin-item">
                 <div style="display:flex;gap:12px;align-items:center;">
-                  ${images[0] ? `<img src="${images[0]}" class="admin-thumb" alt="${p.title}" onerror="this.style.display='none'">` : ""}
+                  ${images[0] ? `<img src="${images[0]}" class="admin-thumb" alt="${getProductDisplayTitle(p)}" onerror="this.style.display='none'">` : ""}
                   <div>
-                    <b>${p.title}</b>
+                    <b>${getProductDisplayTitle(p)}</b>
+                    ${p.title_ar ? `<div class="muted-text">${p.title_ar}</div>` : ""}
                     <div class="muted-text">${categoriesText} • ${Number(p.price || 0).toFixed(2)} $</div>
                     <div class="muted-text">Old price: ${p.old_price ? Number(p.old_price).toFixed(2) + " $" : "-"}</div>
                     <div class="muted-text">Stock: ${Number(p.stock || 0)}</div>
@@ -121,7 +128,9 @@ async function renderProducts() {
                     <div class="muted-text">Popup: ${p.show_popup ? "Yes" : "No"}</div>
                   </div>
                 </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <div class="sort-actions">
+                  <button class="ghost-btn" onclick="moveProduct(${p.id}, 'up')">Up</button>
+                  <button class="ghost-btn" onclick="moveProduct(${p.id}, 'down')">Down</button>
                   <button class="ghost-btn" onclick="editProduct(${p.id})">Edit</button>
                   <button class="ghost-btn" onclick="deleteProduct(${p.id})">Delete</button>
                 </div>
@@ -131,6 +140,22 @@ async function renderProducts() {
         : `<div class="admin-item"><div class="muted-text">No products yet.</div></div>`
     }
   `;
+}
+
+async function renderProducts() {
+  cachedProducts = await loadProducts();
+  const q = String(adminProductSearch?.value || "").trim().toLowerCase();
+
+  const filtered = q
+    ? cachedProducts.filter((p) =>
+        String(p.title_en || p.title || "").toLowerCase().includes(q) ||
+        String(p.title_ar || "").toLowerCase().includes(q) ||
+        String(p.description_en || p.description || "").toLowerCase().includes(q) ||
+        String(p.description_ar || "").toLowerCase().includes(q)
+      )
+    : cachedProducts;
+
+  renderProductsFromList(filtered);
 }
 
 async function renderBanners() {
@@ -160,6 +185,21 @@ async function renderBanners() {
 async function renderAll() {
   await Promise.all([renderCategories(), renderProducts(), renderBanners()]);
 }
+
+adminProductSearch?.addEventListener("input", () => {
+  const q = String(adminProductSearch.value || "").trim().toLowerCase();
+
+  const filtered = q
+    ? cachedProducts.filter((p) =>
+        String(p.title_en || p.title || "").toLowerCase().includes(q) ||
+        String(p.title_ar || "").toLowerCase().includes(q) ||
+        String(p.description_en || p.description || "").toLowerCase().includes(q) ||
+        String(p.description_ar || "").toLowerCase().includes(q)
+      )
+    : cachedProducts;
+
+  renderProductsFromList(filtered);
+});
 
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -341,13 +381,17 @@ productForm.addEventListener("submit", async (e) => {
     }
 
     const payload = {
-      title: fd.get("title"),
+      title_en: fd.get("title_en"),
+      title_ar: fd.get("title_ar"),
+      title: fd.get("title_en"),
       price: fd.get("price"),
       old_price: fd.get("old_price"),
       stock: fd.get("stock"),
       categoryId: categoryIds[0],
       categoryIds,
-      description: fd.get("description"),
+      description_en: fd.get("description_en"),
+      description_ar: fd.get("description_ar"),
+      description: fd.get("description_en"),
       image: uploadedImages[0] || "",
       images: uploadedImages,
       show_popup: showPopupInput.checked
@@ -429,11 +473,29 @@ window.deleteCategory = async function deleteCategory(id) {
   await renderAll();
 };
 
+window.moveCategory = async function moveCategory(id, direction) {
+  await apiJson("/api/categories", {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ id, direction })
+  });
+  await renderAll();
+};
+
 window.deleteProduct = async function deleteProduct(id) {
   await apiJson("/api/products", {
     method: "DELETE",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ id })
+  });
+  await renderProducts();
+};
+
+window.moveProduct = async function moveProduct(id, direction) {
+  await apiJson("/api/products", {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ id, direction })
   });
   await renderProducts();
 };
@@ -447,11 +509,13 @@ window.editProduct = async function editProduct(id) {
   currentProductImages = Array.isArray(product.images) ? product.images : [product.image].filter(Boolean);
   productFiles = [];
 
-  productForm.elements.title.value = product.title || "";
+  productForm.elements.title_en.value = product.title_en || product.title || "";
+  productForm.elements.title_ar.value = product.title_ar || "";
   productForm.elements.price.value = product.price || "";
   productForm.elements.old_price.value = product.old_price || "";
   productForm.elements.stock.value = product.stock || 0;
-  productForm.elements.description.value = product.description || "";
+  productForm.elements.description_en.value = product.description_en || product.description || "";
+  productForm.elements.description_ar.value = product.description_ar || "";
   showPopupInput.checked = !!product.show_popup;
 
   const selectedCategoryIds = Array.isArray(product.category_ids)

@@ -6,6 +6,20 @@ function getProductPageCart() {
   return JSON.parse(localStorage.getItem("velore_cart") || "[]");
 }
 
+function getLang() {
+  return localStorage.getItem("velore_lang") || "en";
+}
+
+function productTitle(product) {
+  const lang = getLang();
+  return lang === "ar" && product.title_ar ? product.title_ar : (product.title_en || product.title || "");
+}
+
+function productDescription(product) {
+  const lang = getLang();
+  return lang === "ar" && product.description_ar ? product.description_ar : (product.description_en || product.description || "");
+}
+
 async function loadProduct() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
@@ -33,12 +47,12 @@ async function loadProduct() {
     ? product.categories.join(" • ")
     : (product.category || "");
 
-  document.title = `${product.title} - VELORÉ`;
+  document.title = `${productTitle(product)} - VELORÉ`;
 
   page.innerHTML = `
     <div>
       <div class="product-image-zoom-wrap">
-        <img id="mainProductImage" src="${images[0] || ""}" alt="${product.title}" class="product-main-image" onerror="this.style.display='none'">
+        <img id="mainProductImage" src="${images[0] || ""}" alt="${productTitle(product)}" class="product-main-image" onerror="this.style.display='none'">
       </div>
 
       ${
@@ -50,7 +64,7 @@ async function loadProduct() {
                   src="${src}"
                   data-src="${src}"
                   class="product-thumb ${i === 0 ? "active-thumb" : ""}"
-                  alt="${product.title}"
+                  alt="${productTitle(product)}"
                 >
               `).join("")}
             </div>
@@ -61,14 +75,14 @@ async function loadProduct() {
 
     <div class="product-meta">
       <div class="product-category">${categoriesText}</div>
-      <h1>${product.title}</h1>
+      <h1>${productTitle(product)}</h1>
 
       <div class="price-row">
         ${product.old_price ? `<span class="old-price">${Number(product.old_price).toFixed(2)} $</span>` : ""}
         <div class="product-price">${Number(product.price).toFixed(2)} $</div>
       </div>
 
-      <div class="product-desc">${product.description || ""}</div>
+      <div class="product-desc">${productDescription(product)}</div>
 
       <div class="product-actions">
         <button id="addToCartBtn" class="primary-btn" type="button" ${Number(product.stock || 0) <= 0 ? "disabled" : ""}>
@@ -108,8 +122,8 @@ async function loadProduct() {
 
   document.getElementById("shareBtn").addEventListener("click", async () => {
     const shareData = {
-      title: product.title,
-      text: product.description || product.title,
+      title: productTitle(product),
+      text: productDescription(product) || productTitle(product),
       url: window.location.href
     };
 

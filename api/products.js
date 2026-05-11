@@ -5,48 +5,53 @@ export default async function handler(req, res) {
   try {
     await initDb();
 
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS old_price NUMERIC(10,2)`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id INTEGER`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS category_ids INTEGER[]`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT[]`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS show_popup BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INTEGER`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS title_en TEXT`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS title_ar TEXT`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description_en TEXT`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description_ar TEXT`);
+
     await pool.query(`
-      ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS old_price NUMERIC(10,2)
+      UPDATE products
+      SET sort_order = id
+      WHERE sort_order IS NULL
     `);
 
     await pool.query(`
-      ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0
+      UPDATE products
+      SET title_en = COALESCE(title, name)
+      WHERE title_en IS NULL OR title_en = ''
     `);
 
     await pool.query(`
-      ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS category_id INTEGER
-    `);
-
-    await pool.query(`
-      ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS category_ids INTEGER[]
-    `);
-
-    await pool.query(`
-      ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS images TEXT[]
-    `);
-
-    await pool.query(`
-      ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS show_popup BOOLEAN NOT NULL DEFAULT FALSE
+      UPDATE products
+      SET description_en = description
+      WHERE (description_en IS NULL OR description_en = '') AND description IS NOT NULL
     `);
 
     if (req.method === "GET") {
       const { rows } = await pool.query(`
         SELECT
           p.id,
-          COALESCE(p.title, p.name) AS title,
+          COALESCE(p.title_en, p.title, p.name) AS title,
+          p.title_en,
+          p.title_ar,
           p.price,
           p.old_price,
           p.stock,
           p.image_url AS image,
           p.images,
           p.description,
+          p.description_en,
+          p.description_ar,
           p.show_popup,
+          p.sort_order,
           COALESCE(
             ARRAY_REMOVE(ARRAY_AGG(DISTINCT COALESCE(c.title, c.name)), NULL),
             '{}'
@@ -65,7 +70,7 @@ export default async function handler(req, res) {
             END
           )
         GROUP BY p.id
-        ORDER BY p.id DESC
+        ORDER BY p.sort_order ASC, p.id DESC
       `);
 
       const mapped = rows.map((row) => ({
@@ -87,6 +92,8 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       const {
         title,
+        title_en,
+        title_ar,
         price,
         old_price,
         stock,
@@ -95,18 +102,25 @@ export default async function handler(req, res) {
         image,
         images,
         description,
+        description_en,
+        description_ar,
         show_popup
       } = req.body || {};
 
-      const cleanTitle = String(title || "").trim();
+      const cleanTitleEn = String(title_en || title || "").trim();
+      const cleanTitleAr = String(title_ar || "").trim();
+      const cleanDescriptionEn = String(description_en || description || "").trim();
+      const cleanDescriptionAr = String(description_ar || "").trim();
+
       const cleanCategoryIds = Array.isArray(categoryIds)
         ? categoryIds.map((x) => Number(x)).filter(Boolean)
         : [Number(categoryId)].filter(Boolean);
+
       const cleanImages = Array.isArray(images)
         ? images.map((x) => String(x || "").trim()).filter(Boolean)
         : [String(image || "").trim()].filter(Boolean);
 
-      if (!cleanTitle || price === "" || price === null || price === undefined) {
+      if (!cleanTitleEn || price === "" || price === null || price === undefined) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
@@ -127,11 +141,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Invalid category" });
       }
 
+      const maxOrder = await pool.query(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM products`);
+
       const { rows } = await pool.query(
         `
         INSERT INTO products (
           title,
           name,
+          title_en,
+          title_ar,
           price,
           old_price,
           stock,
@@ -140,13 +158,17 @@ export default async function handler(req, res) {
           image_url,
           images,
           description,
-          show_popup
+          description_en,
+          description_ar,
+          show_popup,
+          sort_order
         )
-        VALUES ($1, $1, $2, $3, $4, $5, $6::int[], $7, $8::text[], $9, $10)
+        VALUES ($1, $1, $1, $2, $3, $4, $5, $6, $7::int[], $8, $9::text[], $10, $10, $11, $12, $13)
         RETURNING id
         `,
         [
-          cleanTitle,
+          cleanTitleEn,
+          cleanTitleAr,
           Number(price),
           old_price === "" || old_price === null || old_price === undefined ? null : Number(old_price),
           Number(stock ?? 0),
@@ -154,8 +176,10 @@ export default async function handler(req, res) {
           cleanCategoryIds,
           cleanImages[0],
           cleanImages,
-          description || "",
-          !!show_popup
+          cleanDescriptionEn,
+          cleanDescriptionAr,
+          !!show_popup,
+          Number(maxOrder.rows[0].next_order)
         ]
       );
 
@@ -163,9 +187,50 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
+      const { id, direction } = req.body || {};
+
+      if (id && ["up", "down"].includes(direction)) {
+        const currentRes = await pool.query(
+          `SELECT id, sort_order FROM products WHERE id = $1`,
+          [Number(id)]
+        );
+
+        if (!currentRes.rows.length) {
+          return res.status(404).json({ error: "Product not found" });
+        }
+
+        const current = currentRes.rows[0];
+
+        const neighborRes = await pool.query(
+          direction === "up"
+            ? `SELECT id, sort_order FROM products WHERE sort_order < $1 ORDER BY sort_order DESC LIMIT 1`
+            : `SELECT id, sort_order FROM products WHERE sort_order > $1 ORDER BY sort_order ASC LIMIT 1`,
+          [current.sort_order]
+        );
+
+        if (!neighborRes.rows.length) {
+          return res.status(200).json({ ok: true });
+        }
+
+        const neighbor = neighborRes.rows[0];
+
+        await pool.query(`UPDATE products SET sort_order = $1 WHERE id = $2`, [
+          neighbor.sort_order,
+          current.id
+        ]);
+
+        await pool.query(`UPDATE products SET sort_order = $1 WHERE id = $2`, [
+          current.sort_order,
+          neighbor.id
+        ]);
+
+        return res.status(200).json({ ok: true });
+      }
+
       const {
-        id,
         title,
+        title_en,
+        title_ar,
         price,
         old_price,
         stock,
@@ -174,13 +239,20 @@ export default async function handler(req, res) {
         image,
         images,
         description,
+        description_en,
+        description_ar,
         show_popup
       } = req.body || {};
 
-      const cleanTitle = String(title || "").trim();
+      const cleanTitleEn = String(title_en || title || "").trim();
+      const cleanTitleAr = String(title_ar || "").trim();
+      const cleanDescriptionEn = String(description_en || description || "").trim();
+      const cleanDescriptionAr = String(description_ar || "").trim();
+
       const cleanCategoryIds = Array.isArray(categoryIds)
         ? categoryIds.map((x) => Number(x)).filter(Boolean)
         : [Number(categoryId)].filter(Boolean);
+
       const cleanImages = Array.isArray(images)
         ? images.map((x) => String(x || "").trim()).filter(Boolean)
         : [String(image || "").trim()].filter(Boolean);
@@ -194,19 +266,24 @@ export default async function handler(req, res) {
         UPDATE products
         SET title = $1,
             name = $1,
-            price = $2,
-            old_price = $3,
-            stock = $4,
-            category_id = $5,
-            category_ids = $6::int[],
-            image_url = $7,
-            images = $8::text[],
-            description = $9,
-            show_popup = $10
-        WHERE id = $11
+            title_en = $1,
+            title_ar = $2,
+            price = $3,
+            old_price = $4,
+            stock = $5,
+            category_id = $6,
+            category_ids = $7::int[],
+            image_url = $8,
+            images = $9::text[],
+            description = $10,
+            description_en = $10,
+            description_ar = $11,
+            show_popup = $12
+        WHERE id = $13
         `,
         [
-          cleanTitle,
+          cleanTitleEn,
+          cleanTitleAr,
           Number(price),
           old_price === "" || old_price === null || old_price === undefined ? null : Number(old_price),
           Number(stock ?? 0),
@@ -214,7 +291,8 @@ export default async function handler(req, res) {
           cleanCategoryIds,
           cleanImages[0] || "",
           cleanImages,
-          description || "",
+          cleanDescriptionEn,
+          cleanDescriptionAr,
           !!show_popup,
           Number(id)
         ]
